@@ -151,6 +151,14 @@ tr.noterow > td { padding: 0 10px 10px 34px; background: transparent; white-spac
 .arnote .more, .arnote .older > summary { color: var(--accent); }
 .arnote .older-n { border-top: 1px solid var(--grid); margin-top: 6px; padding-top: 6px; }
 .arnote .older-n .nh { display: block; }
+.summary .lead { font-size: 15px; color: var(--ink); margin: 2px 0 14px; }
+.sum-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px 28px; }
+.sum-grid h3 { font-size: 13px; font-weight: 600; margin: 0 0 4px; color: var(--ink); }
+.sum-grid ol, .sum-grid ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-2); }
+.sum-grid ul.plain { list-style: none; padding-left: 0; }
+.sum-grid li { margin: 3px 0; }
+.sum-grid a { color: var(--accent); cursor: pointer; text-decoration: none; }
+.sum-grid a:hover { text-decoration: underline; }
 .checklist { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; padding-left: 20px; }
 .checklist li { margin: 3px 0; }
 @media (max-width: 640px) { .kpi .v { font-size: 18px; } th, td { padding: 6px; } }
@@ -173,6 +181,8 @@ tr.noterow > td { padding: 0 10px 10px 34px; background: transparent; white-spac
   </div>
 
   <div id="app" class="hidden">
+    <div class="card summary" id="summary"></div>
+
     <div class="card">
       <div class="row-between"><h2>Filters</h2></div>
       <div class="controls">
@@ -837,7 +847,7 @@ function aggregate() {
   const q = $('q').value.trim().toLowerCase();
   const inRange = m => m && m >= from && m <= to;
   const months = new Map();
-  const zero = () => ({ charges: 0, adj: 0, disc: 0, bal: 0, insOwed: 0, ptOwed: 0, ins: 0, pt: 0, nB: 0, nO: 0, netB: 0, insB: 0 });
+  const zero = () => ({ charges: 0, adj: 0, disc: 0, bal: 0, insOwed: 0, ptOwed: 0, ins: 0, pt: 0, nB: 0, nO: 0, netB: 0, insB: 0, umB: 0 });
   const get = (m) => { let o = months.get(m); if (!o) months.set(m, o = { m, ...zero(), pats: new Map(), stat: {}, bst: {}, payerOwed: new Map() }); return o; };
   const pat = (mo, mrn, name, src) => {
     const k = mrn || ('?' + name.toLowerCase());
@@ -866,7 +876,7 @@ function aggregate() {
     if (x.dup || !inRange(m) || !dosOk(svcOf(x, true)) || !srcOk(x.src) || (loc && x.loc !== loc) || (st && x.status !== st) || (bs && x.bstat !== bs) || !match(x.pmrn, x.name)) continue;
     const mo = get(m), p = pat(mo, x.pmrn, x.name, x.src);
     mo[x.kind] += x.amt; p[x.kind] += x.amt;
-    if (x.src !== 'om') { mo.nB++; p.nB++; if (x.kind === 'ins') { mo.insB += x.amt; p.insB += x.amt; } } // a month with Barti payments but no Barti charges still has a known patient side
+    if (x.src !== 'om') { mo.nB++; p.nB++; if (x.kind === 'ins') { mo.insB += x.amt; p.insB += x.amt; } if (!x.matched) { mo.umB += x.amt; p.umB += x.amt; } } // a month with Barti payments but no Barti charges still has a known patient side
     inv(mo, p, x.inv, x.link, x.status, x.bstat).pays.push(x);
   }
   // A patient's status is their most urgent invoice status; biller status is the latest note's.
@@ -900,7 +910,7 @@ function renderFiles() {
 
 let lastMonths = [];
 function totals(months) {
-  const T = { charges: 0, adj: 0, disc: 0, bal: 0, insOwed: 0, ptOwed: 0, ins: 0, pt: 0, nB: 0, nO: 0, netB: 0, insB: 0 }, ps = new Set();
+  const T = { charges: 0, adj: 0, disc: 0, bal: 0, insOwed: 0, ptOwed: 0, ins: 0, pt: 0, nB: 0, nO: 0, netB: 0, insB: 0, umB: 0 }, ps = new Set();
   for (const m of months) { for (const k in T) T[k] += m[k]; for (const k of m.pats.keys()) ps.add(k); }
   return { T, n: ps.size };
 }
@@ -936,6 +946,102 @@ function render() {
   renderTable(months);
   renderInsights();
   renderRecon();
+  renderSummary();
+}
+
+// ---------- summary (top of the page and of every export) ----------
+// Built from what is on screen — the current view and filters — so a filtered page or export summarizes exactly that.
+const ATTENTION = ['denied', 'noins', 'zeroins', 'ptaged', 'underins', 'client', 'noactivity', 'ptover', 'credits', 'overins', 'recoup', 'dups', 'late', 'nopayer', 'omlegacy', 'wrongslip'];
+const plural = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+const usd = v => fmt.format(r2(v)); // rounded first, as on the tiles, so a sum that lands a hair below zero reads $0.00, not -$0.00
+function activeFilters() {
+  const out = [], opts = [...$('from').options].map(o => o.value);
+  if (opts.length && ($('from').value !== opts[0] || $('to').value !== opts[opts.length - 1])) out.push(`months ${monthLabel($('from').value)} – ${monthLabel($('to').value)}`);
+  if ($('dosFrom').value || $('dosTo').value) out.push(`date of service ${$('dosFrom').value || 'start'} to ${$('dosTo').value || 'latest'}`);
+  if ($('src').value) out.push('system: ' + ($('src').value === 'om' ? 'Office Mate' : 'Barti'));
+  if ($('loc').value) out.push('location: ' + $('loc').value);
+  if ($('status').value) out.push('payment status: ' + STATUS[$('status').value].label);
+  if ($('bstat').value) out.push('biller status: ' + ($('bstat').value === 'none' ? 'no biller activity' : BSTAT_LABEL[$('bstat').value]));
+  if ($('q').value.trim()) out.push(`patient search "${$('q').value.trim()}"`);
+  return out;
+}
+function checkSummary() {
+  const ps = Object.values(S.parts), out = [], B = M.charges.filter(c => c.src !== 'om');
+  const kinds = new Set(ps.map(kindOf)), missing = [];
+  if (!kinds.has('charge')) missing.push('Barti charge report');
+  if (!kinds.has('pay:ins') && !kinds.has('pay:ins+pt')) missing.push('Barti insurance payments');
+  if (!kinds.has('pay:pt') && !kinds.has('pay:ins+pt')) missing.push('Barti patient payments');
+  if (missing.length) out.push({ ok: false, text: `Still missing: ${missing.join(', ')}` });
+  const ctl = ps.filter(p => Object.keys(p.control).length);
+  if (ctl.length) {
+    const bad = ctl.filter(p => Math.abs(Object.values(p.control).reduce((s, v) => s + v, 0) - p.payments.reduce((s, x) => s + x.amt, 0)) >= 0.01).length;
+    out.push({ ok: !bad, text: bad ? (bad === 1 ? '1 payment report doesn’t add up to its own totals' : `${bad} payment reports don’t add up to their own totals`) : 'Payment reports add up to their own totals' });
+  }
+  if (B.length) {
+    const bad = B.filter(c => Math.abs(c.sub - c.disc + c.tax - c.total) > 0.011 || Math.abs(c.total - c.adj - c.bal) > 0.011 || Math.abs(c.pResp + c.iResp - c.bal) > 0.011 || (M.hasPaidCols && Math.abs(c.bPtPaid - c.bPtRef + c.bInsPaid - c.bTotPaid) > 0.011)).length;
+    out.push({ ok: !bad, text: bad ? `${plural(bad, 'charge-report row doesn’t', 'charge-report rows don’t')} add up` : 'Charge report arithmetic checks out on every row' });
+  }
+  const unread = ps.reduce((s, p) => s + (p.issues?.badNumber?.n || 0) + (p.issues?.badDate?.n || 0), 0);
+  out.push({ ok: !unread, text: unread ? `${plural(unread, 'unreadable amount or date', 'unreadable amounts or dates')} (see Data checks)` : 'No unreadable amounts or dates' });
+  const bp = M.payments.filter(p => p.src !== 'om');
+  if (bp.length && B.length) { const um = bp.filter(p => !p.matched); out.push({ ok: um.length ? 'info' : true, text: `${(bp.length - um.length).toLocaleString()} of ${plural(bp.length, 'payment', 'payments')} matched to an invoice${um.length ? `; ${um.length.toLocaleString()} (${usd(um.reduce((s, p) => s + p.amt, 0))}) did not` : ''}` }); }
+  if (M.noteStats.wrongPatient) out.push({ ok: false, text: `${plural(M.noteStats.wrongPatient, 'worklog entry points', 'worklog entries point')} to another patient’s invoice` });
+  return out;
+}
+function thingsToKnow(list) {
+  const out = [], get = id => list.find(o => o.id === id), sum = o => o.rows.reduce((s, r) => s + r.amt, 0);
+  const om = lastMonths.filter(m => m.nO).map(m => m.m);
+  if (om.length) out.push(`Office Mate rows (${monthLabel(om[0])}${om.length > 1 ? ' – ' + monthLabel(om[om.length - 1]) : ''}) have no patient payments or patient balances, so those show as n/a.`);
+  let o;
+  if ((o = get('bartipaid'))) out.push(`Barti’s "Insurance Paid" column shows ${usd(sum(o))} on ${plural(o.rows.length, 'invoice', 'invoices')} that isn’t in the insurance payment report; those stay pending until they’re adjusted in Barti.`);
+  const cD = M.charges.filter(c => c.src !== 'om').map(c => c.date).filter(Boolean).sort(), pD = M.payments.filter(p => p.src !== 'om' && !p.dateMissing).map(p => p.date).filter(Boolean).sort();
+  if (cD.length && pD.length && (pD[0] > cD[0] || daysBetween(pD[pD.length - 1], cD[cD.length - 1]) > 3)) out.push(`Payment reports cover ${pD[0]} to ${pD[pD.length - 1]} but charges cover ${cD[0]} to ${cD[cD.length - 1]}. Export them for the same dates, or paid invoices can look pending.`);
+  if ((o = get('omdup'))) out.push(`${plural(o.rows.length, 'Office Mate slip is the same visit as a Barti invoice and is', 'Office Mate slips are the same visits as Barti invoices and are')} left out of the totals.`);
+  return out.slice(0, 4);
+}
+function buildSummary() {
+  const months = lastMonths, { T, n } = totals(months), list = S_INS.last || [];
+  const range = months.length ? (months.length === 1 ? monthLabel(months[0].m) : `${monthLabel(months[0].m)} – ${monthLabel(months[months.length - 1].m)}`) : 'No months';
+  const attention = ATTENTION.map(id => list.find(o => o.id === id)).filter(Boolean).slice(0, 4)
+    .map(o => ({ id: o.id, text: `${o.title}: ${o.rows.length.toLocaleString()} (${usd(o.rows.reduce((s, r) => s + r.amt, 0))})` }));
+  // One workbook can hold several reports (e.g. a posting sheet and an AR sheet), so files and reports are counted apart.
+  const ps = Object.values(S.parts), nFiles = new Set(ps.map(p => p.file)).size;
+  const loaded = nFiles === ps.length ? plural(ps.length, 'report', 'reports') : `${plural(nFiles, 'file', 'files')} (${ps.length} reports)`;
+  return { range, basis: S.basis === 'post' ? 'posting date' : 'date of service', filters: activeFilters(), loaded, T, n, attention, checks: checkSummary(), notes: thingsToKnow(list) };
+}
+// Barti payments in view over Barti net charges in view. Payments that match no invoice in the charge report (charges
+// from before it starts, payments on account) still count as collected and can push this past 100%, so the rate
+// without them is given too whenever it rounds differently.
+function collectionRates(T) {
+  if (!(T.netB > 0.004)) return null;
+  const pct = v => Math.round(v / T.netB * 100), all = pct(T.insB + T.pt), matched = pct(T.insB + T.pt - T.umB);
+  return { all, matched: Math.abs(T.umB) > 0.004 && matched !== all ? matched : null };
+}
+function renderSummary() {
+  const s = buildSummary(), T = s.T;
+  const collected = T.ins + (T.nB ? T.pt : 0), r = collectionRates(T);
+  const rate = r ? `; Barti collection rate ${r.all}%${r.matched != null ? `, or ${r.matched}% counting only payments matched to a charge` : ''}` : '';
+  const mark = ok => ok === true ? '<span class="ok">✓</span>' : ok === 'info' ? '<span class="muted">•</span>' : '<span class="sev-med">⚠</span>';
+  $('summary').innerHTML = `<div class="row-between"><h2>Summary</h2><span class="muted" style="font-size:12px">${esc(s.range)} · months by ${s.basis} · ${s.filters.length ? 'filtered: ' + s.filters.map(esc).join('; ') : 'no filters'} · ${esc(s.loaded)} loaded</span></div>
+    <p class="lead">${esc(s.range)}: <b>${usd(T.charges)}</b> charged, <b>${usd(T.adj)}</b> adjusted and <b>${usd(collected)}</b> collected (insurance ${usd(T.ins)}, patients ${T.nB ? usd(T.pt) : 'n/a'}${rate}). Still pending: <b>${usd(T.bal)}</b>, of which <b>${usd(T.insOwed)}</b> is with insurance and <b>${T.nB ? usd(T.ptOwed) : 'n/a'}</b> with patients, across ${plural(s.n, 'patient', 'patients')}.</p>
+    <div class="sum-grid">
+      <div><h3>Needs attention first</h3>${s.attention.length ? `<ol>${s.attention.map(a => `<li><a data-ins="${a.id}" title="Open this worklist">${esc(a.text)}</a></li>`).join('')}</ol>` : '<p class="muted" style="margin:0;font-size:13px">Nothing urgent for these filters.</p>'}</div>
+      <div><h3>Data checks</h3><ul class="plain">${s.checks.map(c => `<li>${mark(c.ok)} ${esc(c.text)}</li>`).join('')}</ul></div>
+      <div><h3>Things to know</h3>${s.notes.length ? `<ul>${s.notes.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="muted" style="margin:0;font-size:13px">Nothing unusual in these reports.</p>'}</div>
+    </div>`;
+  $('summary').querySelectorAll('a[data-ins]').forEach(a => a.onclick = () => { S_INS.open.add(a.dataset.ins); renderInsights(); document.querySelector(`.ins[data-id="${a.dataset.ins}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+}
+// The same summary as two-column lines above the table in every CSV export, then a blank line.
+const htmlText = h => { const d = document.createElement('div'); d.innerHTML = String(h ?? ''); return d.textContent; };
+function summaryRows(title, extra = []) {
+  const s = buildSummary(), T = s.T, mp = moneyPlain, r = collectionRates(T);
+  return [[title], ['Exported', nowIso()], ['Months', s.range], ['Months grouped by', s.basis], ['Filters', s.filters.join('; ') || 'None'], ['Loaded', s.loaded],
+    ['Charges billed', mp(T.charges)], ['Adjustments', mp(T.adj)], ['Net charges', mp(T.charges - T.adj)], ['Insurance payments', mp(T.ins)], ['Patient payments', T.nB ? mp(T.pt) : 'n/a'],
+    ...(r ? [['Barti collection rate', r.all + '%']] : []), ...(r && r.matched != null ? [['Barti collection rate, matched payments only', r.matched + '%']] : []),
+    ['Pending with insurance', mp(T.insOwed)], ['Pending with patients', T.nB ? mp(T.ptOwed) : 'n/a'], ['Total pending', mp(T.bal)], ['Patients', s.n],
+    ...s.attention.map(a => ['Needs attention', a.text]),
+    ...s.checks.map(c => ['Data check', `${c.ok === true ? 'OK' : c.ok === 'info' ? 'Info' : 'Check'}: ${c.text}`]),
+    ...s.notes.map(x => ['Note', x]), ...extra, []];
 }
 
 // ---------- chart ----------
@@ -1289,7 +1395,11 @@ function renderInsights() {
   $('insights').innerHTML = h || '<p class="muted">No issues found for these filters.</p>';
   $('insights').querySelectorAll('.ins button').forEach(b => b.onclick = () => {
     const id = b.closest('.ins').dataset.id, o = S_INS.last.find(x => x.id === id);
-    if (b.dataset.act === 'csv') return download(`VEC insight - ${o.title.replace(/[\\/:*?"<>|]/g, ' ')}.csv`, insightRows(o));
+    if (b.dataset.act === 'csv') {
+      S_INS.cur = o;
+      const why = htmlText(typeof o.why === 'function' ? o.why() : o.why), todo = htmlText(o.todo);
+      return download(`VEC insight - ${o.title.replace(/[\\/:*?"<>|]/g, ' ')}.csv`, [...summaryRows(`VEC worklist: ${o.title}`, [['Worklist', o.title], ['Items', o.rows.length], ['What it means', why], ['What to do', todo]]), ...insightRows(o)]);
+    }
     S_INS.open.has(id) ? S_INS.open.delete(id) : S_INS.open.add(id);
     renderInsights();
   });
@@ -1381,7 +1491,7 @@ function insightRows(o, withTitle) {
 $('csvIns').onclick = () => {
   const rows = [['Insight', 'Patient', 'MRN', 'Invoice', 'Service date', 'Age (days)', 'Payer', 'Amount', 'Detail', 'Barti link']];
   for (const o of S_INS.last) if (!o.payerList) rows.push(...insightRows(o, true));
-  download('VEC biller insights.csv', rows);
+  download('VEC biller insights.csv', [...summaryRows('VEC biller insights'), ...rows]);
 };
 
 // ---------- data checks ----------
@@ -1478,7 +1588,7 @@ const basisTag = () => S.basis === 'post' ? 'posting-date' : 'service-date';
 $('csvMonth').onclick = () => {
   const rows = [['Month', 'Patients', 'Charges billed', 'Discounts (already deducted)', 'Adjustments', 'Net charges', 'Insurance payments', 'Patient payments', 'Pending with insurance', 'Pending with patient', 'Total pending', 'Office Mate lines (patient side n/a)', ...STATUS_ORDER.map(k => STATUS[k].label + ' (invoices)')]];
   for (const m of lastMonths) rows.push([monthLabel(m.m), m.pats.size, moneyPlain(m.charges), moneyPlain(m.disc), moneyPlain(m.adj), moneyPlain(m.charges - m.adj), moneyPlain(m.ins), m.nB ? moneyPlain(m.pt) : 'n/a', moneyPlain(m.insOwed), m.nB ? moneyPlain(m.ptOwed) : 'n/a', moneyPlain(m.bal), m.nO, ...STATUS_ORDER.map(k => m.stat[k] || 0)]);
-  download(`VEC monthly summary (${basisTag()}).csv`, rows);
+  download(`VEC monthly summary (${basisTag()}).csv`, [...summaryRows('VEC monthly summary'), ...rows]);
 };
 $('csvPat').onclick = () => {
   const rows = [['Month', 'Patient', 'MRN', 'System', 'Status', 'Biller status', 'Latest AR note', 'AR notes on file', 'Insurance billed', 'Invoices', 'Charges billed', 'Discounts', 'Adjustments', 'Net charges', 'Insurance payments', 'Patient payments', 'Pending with insurance', 'Pending with patient', 'Total pending']];
@@ -1488,7 +1598,7 @@ $('csvPat').onclick = () => {
     const notes = patientNotes(p), latest = notes[0];
     rows.push([monthLabel(m.m), p.name, p.mrn, p.src === 'om' ? 'Office Mate' : 'Barti', STATUS[p.status].label, p.bstat === 'none' ? '' : BSTAT_LABEL[p.bstat], latest ? `${latest.date || 'No date'} · ${latest.src}${latest.biller ? ' · ' + latest.biller : ''}: ${[latest.status, latest.action, latest.comment].filter(Boolean).join(' · ')}` : 'No notes available', notes.length, [...payers].join('; '), [...p.invs.keys()].map(k => k.replace(/^OM:/, 'OM ')).join(' '), moneyPlain(p.charges), moneyPlain(p.disc), moneyPlain(p.adj), moneyPlain(p.charges - p.adj), moneyPlain(p.ins), p.nB ? moneyPlain(p.pt) : 'n/a', moneyPlain(p.insOwed), p.nB ? moneyPlain(p.ptOwed) : 'n/a', moneyPlain(p.bal)]);
   }
-  download(`VEC patient detail (${basisTag()}).csv`, rows);
+  download(`VEC patient detail (${basisTag()}).csv`, [...summaryRows('VEC patient detail'), ...rows]);
 };
 
 // ---------- wiring ----------
