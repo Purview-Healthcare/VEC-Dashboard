@@ -884,8 +884,10 @@ function monthBar(mo) {
     `<button data-st="${k}" title="${esc(STATUS[k].tip)}"><span style="color:${STATUS[k].color}">${STATUS[k].icon}</span> ${STATUS[k].label}: <b>${mo.stat[k].toLocaleString()}</b></button>`).join('');
   const bst = Object.keys(mo.bst).filter(k => k !== 'none' && mo.bst[k]).map(k => `<button data-bs="${k}">${esc(BSTAT_LABEL[k])}: <b>${mo.bst[k].toLocaleString()}</b></button>`).join('');
   const payers = [...mo.payerOwed.entries()].sort((a, b) => b[1] - a[1]);
-  const top = payers.slice(0, 5).map(([p, v]) => `${esc(p)} <b>${fmt.format(v)}</b>`).join(' · ');
-  const more = payers.length > 5 ? ` · ${payers.length - 5} more` : '';
+  const list = payers.map(([p, v]) => `${esc(p)} <b>${fmt.format(v)}</b>`);
+  const top = list.slice(0, 5).join(' · ');
+  // Payers beyond the top five sit behind a click-to-expand summary.
+  const more = payers.length > 5 ? ` · <details style="display:inline"><summary style="display:inline;cursor:pointer;color:var(--accent)">${payers.length - 5} more</summary> ${list.slice(5).join(' · ')}</details>` : '';
   return `<tr class="detail"><td colspan="${COLS}" style="padding:0"><div class="patbar" style="flex-direction:column;align-items:flex-start">
     <div class="stats"><span>Invoices this month:</span>${stats}</div>
     ${bst ? `<div class="stats"><span>Biller status:</span>${bst}${mo.bst.none ? `<button data-bs="none">No activity: <b>${mo.bst.none.toLocaleString()}</b></button>` : ''}</div>` : ''}
