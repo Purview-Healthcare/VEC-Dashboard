@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEC Monthly Revenue</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --surface-2: #f3f2ee;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --accent: #2a78d6;
+  --accent-wash: rgba(42,120,214,0.08);
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --good: #006300;
+  --bad: #d03b3b;
+  --warn-bg: #fff4dc;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --accent: #3987e5; --accent-wash: rgba(57,135,229,0.12);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+    --good: #0ca30c; --bad: #e66767; --warn-bg: #3a2f14;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422;
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --accent: #3987e5; --accent-wash: rgba(57,135,229,0.12);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+  --good: #0ca30c; --bad: #e66767; --warn-bg: #3a2f14;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 22px; margin: 0 0 2px; font-weight: 650; }
+.sub { color: var(--ink-2); margin: 0 0 20px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+button, select, input { font: inherit; color: var(--ink); }
+button { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+button:hover { background: var(--surface-2); }
+button.primary { background: var(--accent); color: #fff; border-color: transparent; }
+select, input[type=search], input.dt { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+.drop { border: 2px dashed var(--axis); border-radius: 10px; padding: 24px 16px; text-align: center; cursor: pointer; transition: background .15s; }
+.drop.over { background: var(--accent-wash); border-color: var(--accent); }
+.drop strong { display: block; font-size: 16px; margin-bottom: 4px; }
+.drop .hint { color: var(--ink-2); font-size: 13px; max-width: 900px; margin: 0 auto; }
+.files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { background: var(--surface-2); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--ink-2); }
+.chip b { color: var(--ink); font-weight: 600; }
+.chip.warnchip { background: var(--warn-bg); }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; }
+.controls label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-2); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; }
+.seg button.on { background: var(--accent); color: #fff; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.kpi .l { font-size: 12px; color: var(--ink-2); }
+.kpi .v { font-size: 22px; font-weight: 650; margin-top: 2px; }
+.kpi .n { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-2); margin: 0 0 8px; flex-wrap: wrap; }
+.chartbox { position: relative; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); white-space: nowrap; display: none; z-index: 5; }
+.tip .t { font-weight: 600; margin-bottom: 4px; }
+.tip .r { display: flex; justify-content: space-between; gap: 16px; }
+.tblwrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--grid); }
+th { font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--surface); position: sticky; top: 0; }
+th:first-child, td:first-child { text-align: left; }
+tr.month { cursor: pointer; font-weight: 600; }
+tr.month:hover, tr.pat:hover { background: var(--accent-wash); }
+tr.month.open { background: var(--surface-2); }
+tr.pat { cursor: pointer; }
+tr.pat td:first-child { padding-left: 34px; }
+tr.pat .mrn { color: var(--muted); font-size: 12px; margin-left: 6px; }
+tr.total td { font-weight: 650; border-top: 2px solid var(--axis); border-bottom: 0; }
+.caret { display: inline-block; width: 14px; color: var(--muted); transition: transform .15s; }
+.open > td > .caret { transform: rotate(90deg); }
+tr.detail > td { padding: 0 10px 12px 34px; background: var(--surface-2); }
+.inv { margin-top: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.inv h4 { margin: 0 0 6px; font-size: 13px; display: flex; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+.inv h4 a { font-weight: 400; font-size: 12px; color: var(--accent); }
+.inv table th, .inv table td { padding: 4px 8px; font-size: 12px; }
+.inv table th { position: static; }
+.inv td.wrap, .inv th.wrap { white-space: normal; text-align: left; min-width: 160px; max-width: 520px; }
+.patbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 10px 8px 34px; background: var(--surface-2); font-size: 12px; color: var(--ink-2); }
+.neg { color: var(--bad); }
+.na { color: var(--muted); font-weight: 400; }
+.pill { display: inline-block; font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); white-space: nowrap; }
+.pill.src { font-size: 11px; padding: 0 6px; margin-left: 6px; }
+td .pill { text-align: left; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.stats button { font-size: 12px; padding: 2px 8px; border-radius: 999px; }
+.patbar b { color: var(--ink); font-weight: 600; }
+td.st { text-align: left; }
+.ins { border-top: 1px solid var(--grid); padding: 12px 0; }
+.ins:first-child { border-top: 0; padding-top: 0; }
+.ins-h { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.ins-h .ic { width: 20px; text-align: center; font-weight: 700; }
+.ins-h .ti { font-weight: 600; flex: 1 1 280px; }
+.ins-h .fig { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.ins-h .fig .muted { font-weight: 400; }
+.ins p { margin: 4px 0 0 30px; font-size: 13px; color: var(--ink-2); }
+.ins p b { color: var(--ink); }
+.ins .act { margin: 6px 0 0 30px; display: flex; gap: 8px; flex-wrap: wrap; }
+.ins .act button { font-size: 12px; padding: 3px 10px; }
+.ins .list { margin: 8px 0 0 30px; max-height: 420px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.ins .list th, .ins .list td { padding: 5px 8px; font-size: 12px; }
+.ins .list td.l, .ins .list th.l { text-align: left; white-space: normal; min-width: 120px; }
+.suggest { background: var(--warn-bg); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+.suggest h3 { margin: 0 0 6px; font-size: 14px; }
+.suggest ol { margin: 0; padding-left: 20px; }
+.suggest li { margin: 6px 0; font-size: 13px; }
+.suggest li b { font-weight: 600; }
+.sev-high { color: #d03b3b; } .sev-med { color: #c98500; } .sev-info { color: var(--accent); }
+.muted { color: var(--muted); }
+.note { font-size: 12px; color: var(--ink-2); margin: 8px 0 0; }
+.warn { background: var(--warn-bg); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-top: 12px; }
+details summary { cursor: pointer; font-weight: 600; }
+.recon td, .recon th { font-size: 12px; padding: 6px 8px; }
+.recon td.l, .recon th.l { text-align: left; white-space: normal; }
+.ok { color: var(--good); font-weight: 600; }
+.hidden { display: none !important; }
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.row-between h2 { font-size: 15px; margin: 0; }
+.checklist { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; padding-left: 20px; }
+.checklist li { margin: 3px 0; }
+@media (max-width: 640px) { .kpi .v { font-size: 18px; } th, td { padding: 6px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>VEC Monthly Revenue</h1>
+  <p class="sub">Charges, adjustments, payments and pending balances by month, with patient and invoice detail and biller worklists. Drop all of the month's reports below.</p>
+
+  <div class="card">
+    <div id="drop" class="drop" tabindex="0" role="button" aria-label="Choose report files">
+      <strong>Drop all the reports here, or click to choose</strong>
+      <div class="hint">Any file names, Excel or CSV. The dashboard recognizes each report by its column headings: Barti charge report · Barti insurance payments · Barti patient payments · Office Mate analysis report · Denials log · Insurance posting log · COB submission log · AR worklog · AR master log. Files are read in this browser only and are not uploaded anywhere.</div>
+    </div>
+    <input id="file" type="file" multiple accept=".csv,.xlsx,.xls,.xlsm,.txt" class="hidden">
+    <div id="files" class="files"></div>
+    <div id="msg"></div>
+  </div>
+
+  <div id="app" class="hidden">
+    <div class="card">
+      <div class="controls">
+        <label>Group months by
+          <span class="seg" id="basis">
+            <button data-v="post" class="on">Posting date</button>
+            <button data-v="svc">Date of service</button>
+          </span>
+        </label>
+        <label>From <select id="from"></select></label>
+        <label>To <select id="to"></select></label>
+        <label>Date of service from <input id="dosFrom" type="date" class="dt"></label>
+        <label>Date of service to <span style="display:flex;gap:6px"><input id="dosTo" type="date" class="dt"><button id="dosClear" title="Clear the date-of-service range" style="padding:4px 8px">Clear</button></span></label>
+        <label>System <select id="src"><option value="">All systems</option><option value="barti">Barti</option><option value="om">Office Mate</option></select></label>
+        <label>Location <select id="loc"></select></label>
+        <label>Payment status <select id="status"></select></label>
+        <label>Biller status <select id="bstat"></select></label>
+        <label>Find patient (name or MRN) <input id="q" type="search" placeholder="e.g. Smith or 139429"></label>
+        <label>Sort patients by
+          <select id="sort">
+            <option value="bal">Total pending</option>
+            <option value="insOwed">Pending with insurance</option>
+            <option value="ptOwed">Pending with patient</option>
+            <option value="charges">Charges billed</option>
+            <option value="name">Name</option>
+          </select>
+        </label>
+      </div>
+      <p class="note" id="basisNote"></p>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="card">
+      <div class="row-between"><h2>By month</h2></div>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--s1)"></span>Charges billed</span>
+        <span><span class="sw" style="background:var(--s2)"></span>Insurance payments</span>
+        <span><span class="sw" style="background:var(--s3)"></span>Patient payments</span>
+      </div>
+      <div class="chartbox"><svg id="chart" width="100%" height="240" role="img" aria-label="Monthly charges and payments"></svg><div class="tip" id="tip"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="row-between">
+        <h2>Monthly report <span class="muted" style="font-weight:400;font-size:12px">Click a month for patients; click a patient for invoices.</span></h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="expAll">Expand all</button>
+          <button id="csvMonth">Export monthly CSV</button>
+          <button id="csvPat" class="primary">Export patient detail CSV</button>
+        </div>
+      </div>
+      <div class="tblwrap"><table id="tbl">
+        <thead><tr><th>Month / patient</th><th>Patients</th><th>Charges billed</th><th>Adjustments</th><th>Insurance paid</th><th>Patient paid</th><th>Pending with insurance</th><th>Pending with patient</th><th>Total pending</th><th>Status</th><th>Biller status</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <details id="reconBox">
+        <summary>Data checks, matching and Excel formatting</summary>
+        <div id="recon" style="margin-top:12px"></div>
+      </details>
+    </div>
+
+    <div class="card">
+      <div class="row-between">
+        <h2>Biller insights <span class="muted" style="font-weight:400;font-size:12px" id="insAsOf"></span></h2>
+        <button id="csvIns">Export all insight lists</button>
+      </div>
+      <div id="suggest"></div>
+      <div id="insights"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ---------- state ----------
+const S = {
+  parts: {},          // role -> parsed part (one per role; a newer file of the same kind replaces it)
+  basis: 'post',
+  openMonths: new Set(),
+  openPats: new Set(),
+};
+const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+const r2 = v => (Math.round(v * 100) / 100) || 0; // `|| 0` turns -0 into 0
+const money = v => { if (v == null || Number.isNaN(v)) return '<span class="na">n/a</span>'; v = r2(v); const s = fmt.format(v); return v < 0 ? `<span class="neg">${s}</span>` : s; };
+const moneyPlain = v => (v == null || Number.isNaN(v)) ? '' : r2(v).toFixed(2);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = id => document.getElementById(id);
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const monthLabel = k => k ? `${MONTHS[+k.slice(5, 7) - 1]} ${k.slice(0, 4)}` : 'No date';
+const nowIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+// ---------- parsing helpers ----------
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(f); rows.push(row); row = []; f = '';
+    } else f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+// Every cell that should be a number or a date but can't be read is counted in `issues`, so a
+// badly formatted Excel column never silently turns into $0.
+let issues = null;
+const noteIssue = (kind, v) => { if (issues) { issues[kind] = issues[kind] || { n: 0, samples: [] }; issues[kind].n++; if (issues[kind].samples.length < 5) issues[kind].samples.push(String(v)); } };
+function num(v) {
+  if (v == null || v === '') return 0;
+  if (typeof v === 'number') return isFinite(v) ? v : (noteIssue('badNumber', v), 0);
+  if (typeof v === 'boolean') return noteIssue('badNumber', v), 0;
+  let s = String(v).trim(), neg = false;
+  if (s === '' || s === '-' || s === '—' || s === '–') return 0;
+  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }          // (50.00) accounting negative
+  if (/-$/.test(s)) { neg = true; s = s.slice(0, -1); }                 // 50.00- trailing negative
+  s = s.replace(/^(USD|US\$)\s*/i, '').replace(/[$,\s ]/g, '');   // $1,234.56, non-breaking spaces
+  if (!/^[-+]?\d*\.?\d+$/.test(s)) { noteIssue('badNumber', v); return 0; }
+  const n = parseFloat(s);
+  return neg ? -n : n;
+}
+// Dates arrive as Excel serial numbers, Date objects, "MM/DD/YYYY", "YYYY-MM-DD", "Jun 3, 2026" or
+// "3-Jun-2026". `dateOrder` is set per file: 'mdy' unless the file proves it is DD/MM.
+let dateOrder = 'mdy';
+const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+const ymd = (y, m, d) => { y = +y; m = +m; d = +d; if (y < 100) y += 2000; if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1990 || y > 2100) return ''; return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`; };
+// Returns 'YYYY-MM-DD' or ''
+function toDate(v, quiet) {
+  if (v == null || v === '') return '';
+  let out = '';
+  if (v instanceof Date) out = isNaN(v) ? '' : ymd(v.getFullYear(), v.getMonth() + 1, v.getDate());
+  else if (typeof v === 'number') {
+    if (v >= 20000 && v <= 80000) { const d = new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 864e5); out = ymd(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()); }
+  } else {
+    const s = String(v).trim();
+    if (s === '-' || s === '—') return '';
+    let m;
+    if ((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})(?:\b|T)/))) out = dateOrder === 'dmy' ? ymd(m[3], m[2], m[1]) : ymd(m[3], m[1], m[2]);
+    else if ((m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) out = ymd(m[1], m[2], m[3]);
+    else if ((m = s.match(/^(\d{1,2})[ \-]([A-Za-z]{3,5})[ \-,]+(\d{2,4})/)) && MON[m[2].toLowerCase()]) out = ymd(m[3], MON[m[2].toLowerCase()], m[1]);
+    else if ((m = s.match(/^([A-Za-z]{3,9})\.? (\d{1,2}),? (\d{4})/)) && MON[m[1].slice(0, 3).toLowerCase()]) out = ymd(m[3], MON[m[1].slice(0, 3).toLowerCase()], m[2]);
+    else if (/^\d+(\.\d+)?$/.test(s)) return toDate(+s, quiet);
+  }
+  if (!out && !quiet) noteIssue('badDate', v);
+  return out;
+}
+// A file whose slash dates ever have a first part above 12 is DD/MM/YYYY.
+function detectDateOrder(rows, hi, dateCols) {
+  let dmy = 0, mdy = 0;
+  for (let r = hi + 1; r < rows.length; r++) for (const i of dateCols) {
+    const m = String(rows[r]?.[i] ?? '').trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-]\d{2,4}/);
+    if (!m) continue;
+    if (+m[1] > 12) dmy++; else if (+m[2] > 12) mdy++;
+  }
+  return dmy > mdy ? 'dmy' : 'mdy';
+}
+const norm = h => String(h ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+// Invoice number is the shared key; Barti invoice link UUID is the fallback. Excel may hand us
+// 6012, "6012", 6012.0 or "006012" for the same invoice, so digits are normalized.
+const idKey = v => { let s = String(v ?? '').trim().replace(/\.0+$/, ''); if (/^\d+$/.test(s)) s = String(+s); return s; };
+const linkId = link => { const m = String(link || '').match(/invoice\/([0-9a-f-]{36})/i); return m ? m[1].toLowerCase() : ''; };
+const invKey = (no, link) => idKey(no) || (linkId(link) ? 'L:' + linkId(link) : '');
+const mrnKey = idKey;
+// Worklogs write fee slips as "297082", "297082 & 296553" or "299195/96" (= 299195 and 299196).
+function slipList(v) {
+  const s = String(v ?? '').trim();
+  if (!s || s === '-') return [];
+  const parts = s.split(/[^0-9]+/).filter(Boolean);
+  if (!parts.length) return [];
+  const first = parts[0];
+  return [...new Set(parts.map(p => p.length < first.length ? first.slice(0, first.length - p.length) + p : p).map(p => String(+p)))];
+}
+
+// ---------- report recognition ----------
+// Each report is recognized by the column headings it must contain (any file name, any sheet).
+const ROLES = [
+  { role: 'charge',   label: 'Barti charge report',       need: [['chargedate'], ['invoice', 'invoicenumber'], ['total']] },
+  { role: 'pay',      label: 'Barti payments',            need: [['paymentdate'], ['totalpayments', 'amount', 'paymentamount']] },
+  { role: 'om',       label: 'Office Mate analysis report', need: [['servicedate'], ['slip', 'feeslip'], ['inschg'], ['inspmt']] },
+  { role: 'denial',   label: 'Denials log',               need: [['feeslip', 'feeslipnumber'], ['denied', 'denialcode']] },
+  { role: 'posting',  label: 'Insurance posting log',     need: [['feeslip', 'feeslipnumber'], ['paidamount'], ['totalpostedamount']] },
+  { role: 'cobsub',   label: 'COB submission log',        need: [['feeslip', 'feeslipnumber'], ['submissiontype']] },
+  { role: 'arlog',    label: 'AR worklog',                need: [['feeslipnumber'], ['status'], ['balance']] },
+  { role: 'master',   label: 'AR master log',             need: [['feesslip', 'feeslip', 'feeslipnumber'], ['status'], ['balanceamount', 'balance'], ['dateworked']] },
+];
+const ROLE_LABEL = Object.fromEntries(ROLES.map(r => [r.role, r.label]));
+function recognize(rows) {
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const n = (rows[i] || []).map(norm);
+    for (const r of ROLES) if (r.need.every(alts => alts.some(a => n.includes(a)))) return { role: r.role, hi: i };
+  }
+  return null;
+}
+function colGetter(header) {
+  const idx = {}; header.forEach((h, i) => { const k = norm(h); if (!(k in idx)) idx[k] = i; });
+  const g = (row, ...names) => { for (const n of names) { const i = idx[norm(n)]; if (i != null && row[i] != null && row[i] !== '') return row[i]; } return ''; };
+  g.has = (...names) => names.some(n => idx[norm(n)] != null);
+  g.idx = n => idx[norm(n)];
+  g.all = n => { const k = norm(n), out = []; header.forEach((h, i) => { if (norm(h) === k) out.push(i); }); return out; };
+  return g;
+}
+const str = v => String(v ?? '').trim();
+const isHeaderRepeat = (row, hi0, header) => row.some((v, i) => i < header.length && norm(v) === norm(header[i]) && norm(v) !== '' && i === hi0);
+
+// ---------- ingest: one parsed "part" per recognized sheet ----------
+function ingest(fileName, sheetName, rows, meta) {
+  const rec = recognize(rows);
+  if (!rec) return null;
+  const { role, hi } = rec;
+  const header = rows[hi], g = colGetter(header);
+  issues = {};
+  const part = { role, file: fileName, sheet: sheetName, rows: 0, skipped: 0, hiddenRows: meta?.hiddenRows || 0, control: {}, charges: [], payments: [], notes: [], issues, dateOrder: 'mdy', hasPaidCols: false, sums: {} };
+  const dateCols = header.map((h, i) => /date/.test(norm(h)) ? i : -1).filter(i => i >= 0);
+  dateOrder = part.dateOrder = detectDateOrder(rows, hi, dateCols);
+  const keyCol = g.idx(role === 'charge' ? 'Charge Date' : role === 'pay' ? 'Payment Date' : role === 'om' ? 'Service Date' : 'Fee slip') ?? 0;
+  const body = [];
+  for (let r = hi + 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || !row.length || row.every(v => v === '' || v == null)) continue;
+    if (isHeaderRepeat(row, keyCol, header)) { part.skipped++; continue; } // Excel "repeat header" rows
+    body.push(row);
+  }
+  if (role === 'charge') {
+    part.hasPaidCols = g.has('Insurance Paid') && g.has('Patient Paid');
+    for (const row of body) {
+      const inv = invKey(g(row, 'Invoice', 'Invoice Number'), g(row, 'Invoice Link'));
+      const mrn = mrnKey(g(row, 'Patient MRN', 'MRN'));
+      const rawDate = g(row, 'Charge Date');
+      if (!rawDate && !inv && !mrn) { part.skipped++; continue; } // footer / subtotal row
+      const svc = toDate(g(row, 'Service Date')), invDate = toDate(g(row, 'Invoice Date'));
+      let date = toDate(rawDate);
+      if (!date) date = invDate || svc; // unreadable charge date (e.g. a typo year): keep the line, counted under "unreadable dates"
+      const total = num(g(row, 'Total')), sub = num(g(row, 'Subtotal')), disc = num(g(row, 'Discounts')), tax = num(g(row, 'Taxes'));
+      part.charges.push({
+        src: 'barti', date, svc, invDate,
+        mrn, name: str(g(row, 'Patient Name', 'Patient')), inv: inv || `R:${part.charges.length}`, noInv: !inv,
+        link: g(row, 'Invoice Link'), staff: g(row, 'Staff'),
+        code: g(row, 'Billing Code', 'CPT'), desc: g(row, 'Billing Description'), qty: num(g(row, 'Quantity')) || 1,
+        loc: str(g(row, 'Invoice Location', 'Location')) || '(No location)',
+        total, adj: num(g(row, 'Adjustments', 'Adjustment')), bal: num(g(row, 'Balance')),
+        sub: g.has('Subtotal') ? sub : total + disc - tax, disc, tax, payer: str(g(row, 'Insurance Billed')),
+        pResp: num(g(row, 'Patient Resp.', 'Patient Responsibility')), iResp: num(g(row, 'Insurance Resp.', 'Insurance Responsibility')),
+        bInsPaid: num(g(row, 'Insurance Paid')), bPtPaid: num(g(row, 'Patient Paid')), bPtRef: num(g(row, 'Patient Refunds')), bTotPaid: num(g(row, 'Total Paid')),
+      });
+    }
+  } else if (role === 'pay') {
+    let method = '';
+    const nameHint = fileName.toLowerCase();
+    for (const row of body) {
+      const pdate = toDate(g(row, 'Payment Date'), true);
+      const pm = str(g(row, 'Payment Method'));
+      const mrn = mrnKey(g(row, 'MRN', 'Patient MRN')), inv = invKey(g(row, 'Invoice Number', 'Invoice'), g(row, 'Invoice Link'));
+      if (!pdate && !mrn && !inv) {
+        // Group header rows: "EFT", count, group total. Kept as a control total.
+        if (pm) { method = pm; part.control[pm] = (part.control[pm] || 0) + num(g(row, 'Total Payments', 'Amount')); } else part.skipped++;
+        continue;
+      }
+      if (!pdate) { noteIssue('payNoDate', g(row, 'Payment Date') || '(blank)'); }
+      const payer = str(g(row, 'Payer')).toUpperCase();
+      let kind = payer.startsWith('INS') ? 'ins' : payer.startsWith('PAT') ? 'pt' : '';
+      if (!kind) kind = /(^|[^a-z])(pt|patient)/.test(nameHint) ? 'pt' : 'ins';
+      const invDate = toDate(g(row, 'Invoice Date'), true), svc = toDate(g(row, 'Service Date'), true);
+      part.payments.push({
+        src: 'barti', kind, date: pdate || invDate || svc, dateMissing: !pdate, svc, invDate, mrn, name: str(g(row, 'Patients', 'Patient Name')),
+        inv: inv || `P:${part.payments.length}`, link: g(row, 'Invoice Link'),
+        method: pm || method, payerName: str(g(row, 'Payer Name')), notes: str(g(row, 'Notes')),
+        amt: num(g(row, 'Total Payments', 'Amount', 'Payment Amount')),
+      });
+    }
+    const kinds = new Set(part.payments.map(p => p.kind));
+    part.payKind = kinds.size > 1 ? 'mixed' : kinds.has('pt') ? 'pt' : 'ins';
+  } else if (role === 'om') {
+    // Office Mate's export names two columns "Ins Bal": the first is the insurance adjustment, the second the balance.
+    const balCols = g.all('Ins Bal');
+    const iAdj = g.idx('Ins Adj') ?? (balCols.length > 1 ? balCols[0] : null), iBal = balCols.length > 1 ? balCols[1] : (balCols[0] ?? null);
+    for (const row of body) {
+      const svc = toDate(g(row, 'Service Date'));
+      const slip = idKey(g(row, 'Slip', 'Fee slip'));
+      if (!svc && !slip) { part.skipped++; continue; }
+      const insChg = num(g(row, 'Ins Chg')), patChg = num(g(row, 'Pat Chg')), insPmt = -num(g(row, 'Ins Pmt'));
+      const insAdj = iAdj != null ? -num(row[iAdj]) : 0, insBal = iBal != null ? num(row[iBal]) : insChg - insPmt - insAdj;
+      if (Math.abs(insChg - insPmt - insAdj - insBal) > 0.011) noteIssue('omBalance', `slip ${slip}: ${insChg} − ${insPmt} − ${insAdj} ≠ ${insBal}`);
+      const name = str(g(row, 'Patient Name'));
+      const c = {
+        src: 'om', date: svc, svc, invDate: svc, mrn: '', name, inv: slip ? 'OM:' + slip : `R:om${part.charges.length}`, noInv: !slip, link: '',
+        staff: '', code: str(g(row, 'CPT Code')), desc: str(g(row, 'Product Name')), qty: num(g(row, 'Qty')) || 1,
+        loc: '(Office Mate)', total: insChg + patChg, adj: insAdj, bal: insChg + patChg - insAdj, sub: num(g(row, 'Product Fee')) * (num(g(row, 'Qty')) || 1), disc: 0, tax: 0,
+        // Office Mate adjustments are taken off the insurance share, so the insurance share after adjustments is Ins Chg − Ins Adj.
+        payer: str(g(row, 'Insurnace', 'Insurance')), pResp: patChg, iResp: insChg - insAdj, bInsPaid: insPmt, bPtPaid: NaN, bPtRef: 0, bTotPaid: NaN, omBal: insBal,
+      };
+      part.charges.push(c);
+      // Office Mate gives insurance payments per line but no payment date; they are dated by service date.
+      if (Math.abs(insPmt) > 0.004) part.payments.push({ src: 'om', kind: 'ins', date: svc, dateMissing: true, svc, invDate: svc, mrn: '', name, inv: c.inv, link: '', method: 'Office Mate', payerName: c.payer, notes: '', amt: insPmt });
+    }
+  } else {
+    // Worklogs: every row becomes a note on one or more fee slips.
+    for (const row of body) {
+      const slips = slipList(g(row, 'Fee slip', 'FeeSlipNumber', 'FeeSlip#', 'Fees Slip', 'Slip'));
+      if (!slips.length) { part.skipped++; continue; }
+      let n;
+      if (role === 'denial') n = { src: 'Denial log', date: toDate(g(row, 'Workdate', 'Work date', 'Check date'), true), status: 'Denied ' + str(g(row, 'Denied', 'Denial code')), action: '', comment: str(g(row, 'Comments', 'Comment')), amount: num(g(row, 'Billed Amount')), payer: str(g(row, 'Insurance')), biller: '', loc: str(g(row, 'Location')), dos: toDate(g(row, 'DOS'), true), code: str(g(row, 'Denied', 'Denial code')), name: str(g(row, 'PATIENT NAME', 'Patient Name')) };
+      else if (role === 'posting') { const paid = num(g(row, 'Paid Amount')), allowed = num(g(row, 'Allowed Amount')), pr = num(g(row, 'Patient Responsibility')), oadj = num(g(row, 'Other Adjustment'));
+        n = { src: 'Posting log', date: toDate(g(row, 'Workdate', 'Work date', 'Check date'), true), status: `Posted ${fmt.format(paid)} · allowed ${fmt.format(allowed)} · patient resp. ${fmt.format(pr)} · adjustment ${fmt.format(oadj)}`, action: str(g(row, 'Comments', 'Comment')), comment: `${str(g(row, 'Mode'))} check ${str(g(row, 'Check number', 'Check Number'))}`, amount: paid, payer: str(g(row, 'Insurance')), biller: '', loc: str(g(row, 'Location')), dos: toDate(g(row, 'DOS'), true), allowed, pr, name: str(g(row, 'PATIENT NAME', 'Patient Name')) }; }
+      else if (role === 'cobsub') n = { src: 'Submission log', date: toDate(g(row, 'Date of submission', 'Allocation Date'), true), status: `${str(g(row, 'Submission Type')) || 'Claim'} claim ${str(g(row, 'Status By Purview', 'Status')).toLowerCase() || 'submitted'}`, action: '', comment: str(g(row, 'Comment')), amount: num(g(row, 'Charge')), payer: str(g(row, 'Insurance Name', 'S/W Insurance  Name')), biller: str(g(row, 'Biller')), loc: str(g(row, 'Location')), dos: toDate(g(row, 'DOS'), true), name: str(g(row, 'Patient Name')) };
+      else if (role === 'arlog') n = { src: 'AR worklog', date: toDate(g(row, 'Date Shared', 'Submission work Date', 'AgingDate'), true), status: str(g(row, 'Status')), action: [str(g(row, 'Action')), str(g(row, 'Substatus')), str(g(row, 'Submission Status'))].filter(Boolean).join(' · '), comment: [str(g(row, 'Comment')), ...g.all('Comment').slice(1).map(i => str(row[i]))].filter(Boolean).join(' | '), amount: num(g(row, 'Balance', 'Current AR')), payer: str(g(row, 'InsuranceName', 'Insurance')), biller: str(g(row, 'Biller', 'Username')), loc: str(g(row, 'Location')), dos: '', resp: str(g(row, 'Internal Bucket')), name: str(g(row, 'PatientName', 'Patient Name')) };
+      else n = { src: 'AR master log', date: toDate(g(row, 'Date Worked'), true), status: str(g(row, 'Status')), action: [str(g(row, 'Action')), str(g(row, 'Sub Status'))].filter(Boolean).join(' · '), comment: str(g(row, 'Comments/Notes', 'Comments', 'Comment')), amount: num(g(row, 'Balance Amount($)', 'Balance Amount', 'Balance')), payer: str(g(row, 'Payer', 'Insurance')), biller: str(g(row, 'Associate Name', 'Biller')), loc: str(g(row, 'Location')), dos: toDate(g(row, 'DOS'), true), resp: str(g(row, 'Bucket / Responsibility', 'Responsibility')), mrn: mrnKey(g(row, 'MRN')), name: str(g(row, 'Patient Name')) };
+      n.slips = slips; n.role = role;
+      part.notes.push(n);
+    }
+  }
+  part.rows = part.charges.length || part.payments.length || part.notes.length;
+  issues = null; dateOrder = 'mdy';
+  return part;
+}
+
+async function readFile(file) {
+  const parts = [];
+  if (/\.(xlsx?|xlsm|xlsb)$/i.test(file.name)) {
+    if (!window.XLSX) throw new Error('The Excel reader did not load (no internet?). Save the report as CSV and drop that instead.');
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
+    for (const sn of wb.SheetNames) {
+      const ws = wb.Sheets[sn];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+      const hiddenRows = (ws['!rows'] || []).filter(r => r && r.hidden).length;
+      const p = ingest(file.name, sn, rows, { hiddenRows });
+      if (p) parts.push(p);
+    }
+    if (!parts.length) throw new Error('No sheet in this workbook has the column headings of a known report.');
+  } else {
+    const p = ingest(file.name, '', parseCSV(await file.text()), {});
+    if (!p) throw new Error('The column headings do not match any known report (expected e.g. "Charge Date", "Payment Date", "Fee slip" or "Ins Chg").');
+    parts.push(p);
+  }
+  return parts;
+}
+// One report of each kind is kept (a newer file replaces an older one of the same kind), but a workbook
+// may split one report over several sheets, so parts are keyed by kind + file + sheet.
+const kindOf = p => p.role === 'pay' ? (p.payKind === 'mixed' ? 'pay:ins+pt' : 'pay:' + p.payKind) : p.role;
+const partKey = p => `${kindOf(p)}|${p.file}|${p.sheet}`;
+async function handleFiles(list) {
+  const msgs = []; let replaced = new Set();
+  for (const file of list) {
+    try {
+      for (const p of await readFile(file)) {
+        const k = kindOf(p);
+        const clash = kk => kk === k || (k === 'pay:ins+pt' && (kk === 'pay:ins' || kk === 'pay:pt')) || (kk === 'pay:ins+pt' && (k === 'pay:ins' || k === 'pay:pt'));
+        for (const [pk, old] of Object.entries(S.parts)) if (clash(kindOf(old)) && old.file !== p.file) { replaced.add(`${ROLE_LABEL[p.role]}: ${old.file} → ${p.file}`); delete S.parts[pk]; }
+        S.parts[partKey(p)] = p;
+      }
+    } catch (e) { msgs.push(`<b>${esc(file.name)}</b>: ${esc(e.message)}`); }
+  }
+  replaced = [...replaced];
+  let m = msgs.length ? `<div class="warn">${msgs.join('<br>')}</div>` : '';
+  if (replaced.length) m += `<div class="warn">Replaced an earlier file of the same kind (one file per report type is kept): ${replaced.map(esc).join('; ')}</div>`;
+  $('msg').innerHTML = m;
+  S.openMonths.clear(); S.openPats.clear();
+  rebuild();
+}
+
+// ---------- model ----------
+let M = null; // built model
+// Every invoice gets a payment status; nothing is dropped from the report.
+const STATUS = {
+  unpaid:   { label: 'Unpaid',                icon: '○', color: '#d03b3b', tip: 'Charge billed, no payment received yet' },
+  partial:  { label: 'Partially paid',        icon: '◐', color: '#fab219', tip: 'Some payment received, balance still owed' },
+  paid:     { label: 'Paid in full',          icon: '✓', color: '#0ca30c', tip: 'Payments cover the net charge' },
+  credit:   { label: 'Overpaid / credit',     icon: '↺', color: '#2a78d6', tip: 'Payments exceed the net charge' },
+  zero:     { label: 'No charge / written off', icon: '–', color: '#898781', tip: 'Net charge is $0 after adjustments' },
+  nocharge: { label: 'Payment, no charge found', icon: '?', color: '#ec835a', tip: 'Payment whose invoice is not in the charge report' },
+};
+const STATUS_ORDER = ['unpaid', 'partial', 'credit', 'nocharge', 'paid', 'zero'];
+function statusOf(v) {
+  if (Math.abs(v.net) < 0.01 && Math.abs(v.paid) < 0.01) return 'zero';
+  if (v.owed < -0.01) return 'credit';
+  if (v.owed <= 0.01) return 'paid';
+  return Math.abs(v.paid) < 0.01 ? 'unpaid' : 'partial';
+}
+// Biller status categories, from the worklog status text.
+const BSTAT = [
+  ['paid', 'Claim paid / processed', /paid|processed|posted|cash in bank|closed/],
+  ['denied', 'Denied / rejected', /denied|reject|upheld/],
+  ['notfiled', 'Not on file / not filed', /not on file|not filed|need to submit|not found|unable to get/],
+  ['patient', 'Patient responsibility', /ptr|deduct|ded\b|ded-|bill(ed)? ?(the )?patient|patient resp|text sent|patient calling/],
+  ['cob', 'COB / secondary', /cob|secondary|forwarded to submission/],
+  ['inprocess', 'In process / submitted', /in process|filed|submitted|allow some time|appeal|recon|eob|in-process|processing/],
+  ['other', 'Other', /./],
+];
+const BSTAT_LABEL = Object.fromEntries(BSTAT.map(b => [b[0], b[1]]));
+const bstatOf = n => { const t = `${n.status} ${n.action || ''} ${n.resp || ''}`.toLowerCase(); return (BSTAT.find(b => b[2].test(t)) || BSTAT[BSTAT.length - 1])[0]; };
+// Barti stores the same insurer under several spellings (e.g. "VSP" and "Vision Service Plan").
+// Only plain spelling variants are merged; distinct plans (e.g. "Aetna Medicare", "VSP Essential
+// Medical", "UHC Student Resources") stay separate. Anything else matches case/punctuation-insensitively.
+const PAYER_FAMILIES = [
+  [/^(VSP( VISION)?|VISION SERVICE PLAN|VSP VISION SERVICE PLAN)$/, 'VSP (Vision Service Plan)'],
+  [/^EYE ?MED( VISION CARE)?$/, 'EyeMed'],
+  [/^(BLUE ?CROSS ?BLUE ?SHIELD|BCBS)( PPO)?( (OF )?(ILLINOIS|IL))?$/, 'Blue Cross Blue Shield of Illinois'],
+  [/^(UNITED ?HEALTH ?CARE|UHC)( INSURANCE COMPANY)?$/, 'UnitedHealthcare'],
+  [/^DAVIS VISION$/, 'Davis Vision'],
+  [/^SUPERIOR VISION$/, 'Superior Vision'],
+  [/^AETNA( HEALTH PLANS)?$/, 'Aetna'],
+  [/^MEDICARE( OF ILLINOIS| PART B| IL)?$/, 'Medicare'],
+];
+const payerSeen = new Map(); // normalized -> first spelling seen
+function canonPayer(raw) {
+  const u = String(raw || '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!u) return '';
+  for (const [re, name] of PAYER_FAMILIES) if (re.test(u)) return name;
+  if (!payerSeen.has(u)) payerSeen.set(u, String(raw).trim());
+  return payerSeen.get(u);
+}
+// "Last, First (#123)" and "First Last" compare equal: first name + last name, lower-case.
+function nameKey(s) {
+  s = String(s || '').toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').replace(/[^a-z, ]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s.includes(',')) { const [l, f] = s.split(',').map(x => x.trim()); return `${(f.split(' ')[0] || '')} ${(l.split(' ')[0] || '')}`.trim(); }
+  const p = s.split(' '); return `${p[0] || ''} ${p.length > 1 ? p[p.length - 1] : ''}`.trim();
+}
+const pill = k => { const s = STATUS[k]; return `<span class="pill" title="${esc(s.tip)}"><span style="color:${s.color}">${s.icon}</span> ${s.label}</span>`; };
+const srcPill = src => src === 'om' ? '<span class="pill src" title="From the Office Mate analysis report">Office Mate</span>' : '';
+
+function rebuild() {
+  const charges = [], payments = [], notes = [];
+  for (const p of Object.values(S.parts)) { charges.push(...p.charges); payments.push(...p.payments); notes.push(...p.notes); }
+  // Invoice lookup from the charge reports: location, service date, patient name.
+  const invInfo = new Map();
+  for (const c of charges) {
+    let i = invInfo.get(c.inv);
+    if (!i) invInfo.set(c.inv, i = { loc: c.loc, svc: c.svc || c.invDate || c.date, mrn: c.mrn, name: c.name, link: c.link, src: c.src });
+  }
+  const names = new Map();
+  for (const c of charges) if (c.mrn && c.name && !names.has(c.mrn)) names.set(c.mrn, c.name);
+  for (const p of payments) if (p.mrn && p.name && !names.has(p.mrn)) names.set(p.mrn, p.name);
+  for (const p of payments) {
+    const i = invInfo.get(p.inv);
+    p.matched = !!i;
+    p.loc = i ? i.loc : '(Payment not matched to a charge)';
+    p.chargeSvc = i ? i.svc : '';
+  }
+  // Barti's "Balance" column is Total − Adjustments (before payments), so what is still owed is worked
+  // out per invoice: net charges minus every payment on that invoice to date. Insurance Resp. minus
+  // insurance payments is what insurance still owes; the rest is the patient's. Office Mate rows carry
+  // insurance figures only, so their patient side is unknown (shown as n/a, never as $0).
+  const invs = new Map();
+  for (const c of charges) {
+    let v = invs.get(c.inv);
+    if (!v) invs.set(c.inv, v = {
+      key: c.inv, src: c.src, mrn: c.mrn, name: c.name, date: c.date, svc: c.svc || c.invDate || c.date, loc: c.loc, link: c.link,
+      net: 0, tot: 0, adj: 0, gross: 0, disc: 0, iResp: 0, pResp: 0, insPaid: 0, ptPaid: 0, ptRef: 0, bInsPaid: 0, bPtPaid: 0, payers: new Set(), pays: [], notes: [], lines: 0,
+    });
+    v.net += c.total - c.adj; v.tot += c.total; v.adj += c.adj; v.gross += c.sub; v.disc += c.disc; v.iResp += c.iResp; v.pResp += c.pResp; v.lines++;
+    v.bInsPaid += c.bInsPaid || 0; v.bPtPaid += c.bPtPaid || 0; v.ptRef += c.bPtRef || 0;
+    if (c.payer) v.payers.add(c.payer);
+  }
+  for (const p of payments) if (p.matched) { const v = invs.get(p.inv); v.pays.push(p); if (p.kind === 'ins') v.insPaid += p.amt; else v.ptPaid += p.amt; }
+  // Around the move from Office Mate to Barti, some visits were entered in both systems. An Office Mate
+  // slip whose patient and service date also exist in Barti as a real invoice is treated as a duplicate: it
+  // is listed in the data checks and under Biller insights but left out of every total. Barti's
+  // "OfficeMate Balances" lines (patient balances brought across at the changeover) do not count as a
+  // real invoice: the Office Mate slip still carries the insurance side, so both are kept.
+  const migratedInv = new Set();
+  for (const v of invs.values()) if (v.src !== 'om') v.migrated = true;
+  for (const c of charges) if (c.src !== 'om' && !/office ?mate/i.test(String(c.desc))) invs.get(c.inv).migrated = false;
+  const bartiVisits = new Set();
+  for (const v of invs.values()) if (v.src !== 'om' && v.svc && !v.migrated) bartiVisits.add(nameKey(v.name) + '|' + v.svc);
+  const dupSlips = new Set();
+  for (const v of invs.values()) if (v.src === 'om' && v.svc && bartiVisits.has(nameKey(v.name) + '|' + v.svc)) { v.dup = true; dupSlips.add(v.key); }
+  for (const c of charges) c.dup = dupSlips.has(c.inv);
+  for (const p of payments) p.dup = dupSlips.has(p.inv);
+  // Worklog notes attach to the invoice whose number matches the fee slip: Barti first, then Office Mate.
+  const noteStats = { matched: 0, unmatched: 0, bySrc: {} };
+  for (const n of notes) {
+    n.keys = [];
+    for (const s of n.slips) { if (invs.has(s)) n.keys.push(s); else if (invs.has('OM:' + s)) n.keys.push('OM:' + s); }
+    noteStats.bySrc[n.src] = noteStats.bySrc[n.src] || { n: 0, matched: 0 };
+    noteStats.bySrc[n.src].n++;
+    if (n.keys.length) { noteStats.matched++; noteStats.bySrc[n.src].matched++; for (const k of n.keys) invs.get(k).notes.push(n); } else noteStats.unmatched++;
+  }
+  const SRC_RANK = { 'AR master log': 5, 'AR worklog': 4, 'Posting log': 3, 'Denial log': 2, 'Submission log': 1 };
+  for (const v of invs.values()) {
+    v.ptPaidNet = v.src === 'om' ? NaN : v.ptPaid - v.ptRef;      // refunds come from the charge report (they carry no date)
+    v.paid = v.insPaid + (v.src === 'om' ? 0 : v.ptPaidNet);
+    v.insOwed = v.iResp - v.insPaid;                               // negative = insurer overpaid
+    if (v.src === 'om') { v.ptOwed = NaN; v.owed = v.insOwed; }    // patient side unknown in Office Mate
+    else { v.owed = v.net - v.paid; v.ptOwed = v.owed - v.insOwed; }
+    v.status = statusOf(v);
+    v.payerRaw = [...v.payers].join(', ');
+    v.payer = [...new Set([...v.payers].map(canonPayer))].join(', ');
+    v.notes.sort((a, b) => (b.date || '').localeCompare(a.date || '') || SRC_RANK[b.src] - SRC_RANK[a.src]);
+    v.latest = v.notes[0] || null;
+    v.bstat = v.latest ? bstatOf(v.latest) : 'none';
+    v.denial = v.notes.find(n => n.role === 'denial') || null;
+  }
+  // Spread each invoice's figures over its charge lines by net amount so months/patients add up.
+  const seen = new Set();
+  for (const c of charges) {
+    const v = invs.get(c.inv), net = c.total - c.adj;
+    const share = Math.abs(v.net) > 0.009 ? net / v.net : (seen.has(c.inv) ? 0 : 1);
+    seen.add(c.inv);
+    c.open = v.owed * share; c.insOwed = v.insOwed * share; c.ptOwed = v.src === 'om' ? NaN : v.ptOwed * share;
+    c.status = v.status; c.bstat = v.bstat;
+  }
+  for (const p of payments) { const v = invs.get(p.inv); p.status = v ? v.status : 'nocharge'; p.bstat = v ? v.bstat : 'none'; }
+  M = { charges, payments, notes, invInfo, names, invs, noteStats, hasPaidCols: Object.values(S.parts).some(p => p.role === 'charge' && p.hasPaidCols) };
+  renderFiles();
+  if (!charges.length && !payments.length) { $('app').classList.add('hidden'); return; }
+  $('app').classList.remove('hidden');
+  fillFilters();
+  render();
+}
+
+// Date of service for a charge or payment (payments use their invoice's service date when matched).
+const svcOf = (rec, isPay) => isPay ? (rec.chargeSvc || rec.svc || rec.invDate || rec.date) : (rec.svc || rec.invDate || rec.date);
+function monthOf(rec, isPay) {
+  const d = S.basis === 'post' ? rec.date : svcOf(rec, isPay);
+  return d ? d.slice(0, 7) : '';
+}
+// The date-of-service range applies on top of the month range, in either view.
+function dosOk(d) {
+  const a = $('dosFrom').value, b = $('dosTo').value;
+  return (!a || (d && d >= a)) && (!b || (d && d <= b));
+}
+const srcOk = s => { const w = $('src').value; return !w || s === w; };
+
+function fillFilters() {
+  const ms = new Set();
+  for (const c of M.charges) ms.add(monthOf(c, false));
+  for (const p of M.payments) ms.add(monthOf(p, true));
+  const months = [...ms].filter(Boolean).sort();
+  const keepF = $('from').value, keepT = $('to').value;
+  const opts = months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
+  $('from').innerHTML = opts; $('to').innerHTML = opts;
+  $('from').value = months.includes(keepF) ? keepF : months[0] || '';
+  $('to').value = months.includes(keepT) ? keepT : months[months.length - 1] || '';
+  const locs = new Set(M.charges.map(c => c.loc));
+  if (M.payments.some(p => !p.matched)) locs.add('(Payment not matched to a charge)');
+  const keepL = $('loc').value;
+  $('loc').innerHTML = `<option value="">All locations</option>` + [...locs].sort().map(l => `<option>${esc(l)}</option>`).join('');
+  if ([...locs].includes(keepL)) $('loc').value = keepL;
+  const svcDates = M.charges.map(c => svcOf(c, false)).filter(Boolean).sort();
+  for (const id of ['dosFrom', 'dosTo']) { $(id).min = svcDates[0] || ''; $(id).max = svcDates[svcDates.length - 1] || ''; }
+  const keepS = $('status').value;
+  $('status').innerHTML = `<option value="">All statuses</option>` + STATUS_ORDER.map(k => `<option value="${k}">${STATUS[k].icon} ${STATUS[k].label}</option>`).join('');
+  $('status').value = keepS;
+  const keepB = $('bstat').value;
+  const hasNotes = M.notes.length > 0;
+  $('bstat').innerHTML = `<option value="">All</option>` + (hasNotes ? BSTAT.map(b => `<option value="${b[0]}">${b[1]}</option>`).join('') + `<option value="none">No biller activity</option>` : '');
+  $('bstat').value = keepB; $('bstat').disabled = !hasNotes;
+  const om = M.charges.some(c => c.src === 'om');
+  $('basisNote').textContent = (S.basis === 'post'
+    ? 'Posting date: charges by Charge Date, payments by the date they were received. This is the cash view of what happened in each month.'
+    : 'Date of service: charges and their payments land in the month the patient was seen (payments use the matched invoice\'s service date). This shows how each month\'s visits were paid.')
+    + (om ? ' Office Mate rows have no charge or payment dates, so they are placed by service date in both views, and their patient payments and patient balances are not in that report (shown as n/a).' : '');
+}
+
+function aggregate() {
+  const from = $('from').value, to = $('to').value, loc = $('loc').value, st = $('status').value, bs = $('bstat').value;
+  const q = $('q').value.trim().toLowerCase();
+  const inRange = m => m && m >= from && m <= to;
+  const months = new Map();
+  const zero = () => ({ charges: 0, adj: 0, disc: 0, bal: 0, insOwed: 0, ptOwed: 0, ins: 0, pt: 0, nB: 0, nO: 0 });
+  const get = (m) => { let o = months.get(m); if (!o) months.set(m, o = { m, ...zero(), pats: new Map(), stat: {}, bst: {}, payerOwed: new Map() }); return o; };
+  const pat = (mo, mrn, name, src) => {
+    const k = mrn || ('?' + name.toLowerCase());
+    let o = mo.pats.get(k);
+    if (!o) mo.pats.set(k, o = { mrn, name: M.names.get(mrn) || name || '(Unknown)', src, ...zero(), invs: new Map() });
+    return o;
+  };
+  const inv = (mo, p, key, link, status, bstat) => {
+    let o = p.invs.get(key);
+    if (!o) { p.invs.set(key, o = { key, link, status, bstat, lines: [], pays: [] }); mo.stat[status] = (mo.stat[status] || 0) + 1; mo.bst[bstat] = (mo.bst[bstat] || 0) + 1; }
+    if (!o.link && link) o.link = link;
+    return o;
+  };
+  const match = (mrn, name) => !q || String(mrn).includes(q) || String(M.names.get(mrn) || name || '').toLowerCase().includes(q);
+  const add = (o, c) => { o.charges += c.total; o.adj += c.adj; o.disc += c.disc; o.insOwed += c.insOwed; if (c.src === 'om') { o.nO++; o.bal += c.insOwed; } else { o.nB++; o.bal += c.open; o.ptOwed += c.ptOwed; } };
+  for (const c of M.charges) {
+    const m = monthOf(c, false);
+    if (c.dup || !inRange(m) || !dosOk(svcOf(c, false)) || !srcOk(c.src) || (loc && c.loc !== loc) || (st && c.status !== st) || (bs && c.bstat !== bs) || !match(c.mrn, c.name)) continue;
+    const mo = get(m), p = pat(mo, c.mrn, c.name, c.src);
+    add(mo, c); add(p, c);
+    if (c.insOwed > 0.004) { const k = M.invs.get(c.inv).payer || '(Insurance not named)'; mo.payerOwed.set(k, (mo.payerOwed.get(k) || 0) + c.insOwed); }
+    inv(mo, p, c.inv, c.link, c.status, c.bstat).lines.push(c);
+  }
+  for (const x of M.payments) {
+    const m = monthOf(x, true);
+    if (x.dup || !inRange(m) || !dosOk(svcOf(x, true)) || !srcOk(x.src) || (loc && x.loc !== loc) || (st && x.status !== st) || (bs && x.bstat !== bs) || !match(x.mrn, x.name)) continue;
+    const mo = get(m), p = pat(mo, x.mrn, x.name, x.src);
+    mo[x.kind] += x.amt; p[x.kind] += x.amt;
+    if (x.src !== 'om') { mo.nB++; p.nB++; } // a month with Barti payments but no Barti charges still has a known patient side
+    inv(mo, p, x.inv, x.link, x.status, x.bstat).pays.push(x);
+  }
+  // A patient's status is their most urgent invoice status; biller status is the latest note's.
+  for (const mo of months.values()) for (const p of mo.pats.values()) {
+    const ivs = [...p.invs.values()];
+    p.status = STATUS_ORDER.find(k => ivs.some(i => i.status === k)) || 'zero';
+    const withNotes = ivs.map(i => M.invs.get(i.key)).filter(v => v && v.latest);
+    p.bstat = withNotes.length ? BSTAT.map(b => b[0]).find(k => withNotes.some(v => v.bstat === k)) || 'other' : 'none';
+  }
+  return [...months.values()].sort((a, b) => a.m.localeCompare(b.m));
+}
+
+// ---------- render ----------
+function renderFiles() {
+  const ps = Object.values(S.parts);
+  $('files').innerHTML = ps.map(p => {
+    const warn = p.issues && Object.keys(p.issues).length;
+    return `<span class="chip${warn ? ' warnchip' : ''}" title="${esc(p.sheet ? 'Sheet: ' + p.sheet : '')}"><b>${esc(ROLE_LABEL[p.role])}${p.role === 'pay' ? ' (' + (p.payKind === 'mixed' ? 'insurance + patient' : p.payKind === 'pt' ? 'patient' : 'insurance') + ')' : ''}</b> · ${esc(p.file)}${p.sheet ? ' › ' + esc(p.sheet) : ''} · ${p.rows.toLocaleString()} rows${warn ? ' · ⚠ see data checks' : ''}</span>`;
+  }).join('') + (ps.length ? `<button id="clear" style="font-size:12px;padding:3px 10px">Clear all</button>` : '');
+  const c = $('clear'); if (c) c.onclick = (e) => { e.stopPropagation(); S.parts = {}; $('msg').innerHTML = ''; rebuild(); };
+  const missing = [], kinds = new Set(ps.map(kindOf));
+  if (ps.length) {
+    if (!kinds.has('charge')) missing.push('Barti charge report');
+    if (!kinds.has('pay:ins') && !kinds.has('pay:ins+pt')) missing.push('Barti insurance payments');
+    if (!kinds.has('pay:pt') && !kinds.has('pay:ins+pt')) missing.push('Barti patient payments');
+  }
+  const cur = $('msg').innerHTML.replace(/<div class="warn">Still missing:.*?<\/div>/, '');
+  $('msg').innerHTML = cur + (missing.length ? `<div class="warn">Still missing: ${missing.join(', ')}. Totals for those columns will show $0 until they are added. The other logs (denials, posting, submissions, AR worklogs, Office Mate) are optional.</div>` : '');
+}
+
+let lastMonths = [];
+function totals(months) {
+  const T = { charges: 0, adj: 0, disc: 0, bal: 0, insOwed: 0, ptOwed: 0, ins: 0, pt: 0, nB: 0, nO: 0 }, ps = new Set();
+  for (const m of months) { for (const k in T) T[k] += m[k]; for (const k of m.pats.keys()) ps.add(k); }
+  return { T, n: ps.size };
+}
+function render() {
+  const months = aggregate(); lastMonths = months;
+  const { T, n } = totals(months);
+  let range = months.length ? (months.length === 1 ? monthLabel(months[0].m) : `${monthLabel(months[0].m)} – ${monthLabel(months[months.length - 1].m)}`) : 'No data';
+  const df = $('dosFrom').value, dt = $('dosTo').value;
+  if (df || dt) range += ` · service ${df || 'start'} to ${dt || 'latest'}`;
+  const omNote = T.nO ? (T.nB ? ' (Barti rows only; Office Mate patient side unknown)' : ' (not in the Office Mate report)') : '';
+  const tile = (l, v, n) => `<div class="kpi"><div class="l">${l}</div><div class="v">${money(v)}</div><div class="n">${n}</div></div>`;
+  $('kpis').innerHTML =
+    tile('Total charges billed', T.charges, range) +
+    tile('Discounts', T.disc, 'Already deducted from charges billed') +
+    tile('Adjustments', T.adj, `Net charges ${fmt.format(T.charges - T.adj)}`) +
+    tile('Insurance payments', T.ins, `${n.toLocaleString()} patients in view`) +
+    tile('Patient payments', T.nB ? T.pt : NaN, `Total collected ${fmt.format(T.ins + T.pt)}${omNote}`) +
+    tile('Pending with insurance', T.insOwed, 'Insurance share not yet paid (net of insurer overpayments)') +
+    tile('Pending with patients', T.nB ? T.ptOwed : NaN, 'Patient share not yet paid' + omNote) +
+    tile('Total pending', T.bal, T.nO ? 'Net charges less payments; Office Mate rows count insurance only' : 'Net charges less all payments');
+  renderChart(months);
+  renderTable(months);
+  renderInsights();
+  renderRecon();
+}
+
+// ---------- chart ----------
+function renderChart(months) {
+  const svg = $('chart'), W = svg.clientWidth || 800, H = 240, padL = 64, padB = 28, padT = 8, padR = 8;
+  const max = Math.max(1, ...months.flatMap(m => [m.charges, m.ins, m.pt]));
+  const step = niceStep(max / 4), top = Math.ceil(max / step) * step;
+  const y = v => padT + (H - padT - padB) * (1 - Math.max(0, v) / top);
+  const bw = (W - padL - padR) / Math.max(1, months.length);
+  const barW = Math.max(3, Math.min(28, (bw - 10) / 3));
+  let s = '';
+  for (let v = 0; v <= top + 1e-6; v += step) {
+    s += `<line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" stroke="var(${v === 0 ? '--axis' : '--grid'})"/>`;
+    s += `<text x="${padL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${short(v)}</text>`;
+  }
+  const keys = [['charges', '--s1'], ['ins', '--s2'], ['pt', '--s3']];
+  const every = Math.ceil(months.length / 14);
+  months.forEach((m, i) => {
+    const cx = padL + bw * i + bw / 2, x0 = cx - (barW * 3 + 4) / 2;
+    keys.forEach(([k, c], j) => {
+      const v = Math.max(0, m[k]), yy = y(v), h = Math.max(0, H - padB - yy);
+      if (h > 0) s += `<path d="${roundTop(x0 + j * (barW + 2), yy, barW, h, Math.min(4, barW / 2, h))}" fill="var(${c})"/>`;
+    });
+    if (i % every === 0) s += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${monthLabel(m.m)}</text>`;
+    s += `<rect class="hit" data-i="${i}" x="${padL + bw * i}" y="${padT}" width="${bw}" height="${H - padT - padB}" fill="transparent"/>`;
+  });
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = s;
+  const tip = $('tip');
+  svg.querySelectorAll('.hit').forEach(r => {
+    r.onmousemove = e => {
+      const m = months[+r.dataset.i];
+      tip.innerHTML = `<div class="t">${monthLabel(m.m)}</div>` +
+        [['Charges billed', m.charges, '--s1'], ['Adjustments', m.adj], ['Insurance paid', m.ins, '--s2'], ['Patient paid', m.nB ? m.pt : NaN, '--s3'], ['Pending with insurance', m.insOwed], ['Pending with patients', m.nB ? m.ptOwed : NaN], ['Total pending', m.bal]]
+          .map(([l, v, c]) => `<div class="r"><span>${c ? `<span class="sw" style="background:var(${c})"></span>` : '<span class="sw"></span>'}${l}</span><span>${money(v)}</span></div>`).join('');
+      tip.style.display = 'block';
+      const box = svg.parentElement.getBoundingClientRect();
+      let left = e.clientX - box.left + 12; if (left + tip.offsetWidth > box.width) left = e.clientX - box.left - tip.offsetWidth - 12;
+      tip.style.left = left + 'px'; tip.style.top = Math.max(0, e.clientY - box.top - 20) + 'px';
+      r.setAttribute('fill', 'var(--accent-wash)');
+    };
+    r.onmouseleave = () => { tip.style.display = 'none'; r.setAttribute('fill', 'transparent'); };
+    r.onclick = () => { const k = months[+r.dataset.i].m; S.openMonths.add(k); renderTable(lastMonths); document.querySelector(`tr.month[data-m="${k}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  });
+}
+function niceStep(x) { const p = Math.pow(10, Math.floor(Math.log10(x || 1))); const f = x / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
+function short(v) { return v >= 1e6 ? '$' + (v / 1e6).toFixed(v % 1e6 ? 1 : 0) + 'M' : v >= 1e3 ? '$' + (v / 1e3).toFixed(0) + 'K' : '$' + v; }
+function roundTop(x, y, w, h, r) { return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`; }
+
+// ---------- table ----------
+const COLS = 11;
+const ptCell = (o, v) => o.nB ? money(v) + (o.nO ? ' <span class="na" title="Office Mate rows excluded: not in that report">*</span>' : '') : '<span class="na" title="Not in the Office Mate report">n/a</span>';
+const cells = o => `<td>${money(o.charges)}</td><td>${money(o.adj)}</td><td>${money(o.ins)}</td><td>${ptCell(o, o.pt)}</td><td>${money(o.insOwed)}</td><td>${ptCell(o, o.ptOwed)}</td><td><b>${money(o.bal)}</b>${o.nO ? ' <span class="na" title="Office Mate rows: insurance balance only">†</span>' : ''}</td>`;
+const collected = o => { const net = o.charges - o.adj; return net > 0.004 && o.nB ? `${Math.round((o.ins + o.pt) / net * 100)}% collected` : '—'; };
+function sortedPats(mo) {
+  const k = $('sort').value, arr = [...mo.pats.entries()];
+  if (k === 'name') arr.sort((a, b) => a[1].name.localeCompare(b[1].name));
+  else arr.sort((a, b) => ((b[1][k] || 0) - (a[1][k] || 0)) || a[1].name.localeCompare(b[1].name));
+  return arr;
+}
+const bpill = k => k === 'none' ? '<span class="na">—</span>' : `<span class="pill">${esc(BSTAT_LABEL[k] || k)}</span>`;
+// Summary shown under an opened month: invoice counts per status (click to filter) and who owes the most.
+function monthBar(mo) {
+  const stats = STATUS_ORDER.filter(k => mo.stat[k]).map(k =>
+    `<button data-st="${k}" title="${esc(STATUS[k].tip)}"><span style="color:${STATUS[k].color}">${STATUS[k].icon}</span> ${STATUS[k].label}: <b>${mo.stat[k].toLocaleString()}</b></button>`).join('');
+  const bst = Object.keys(mo.bst).filter(k => k !== 'none' && mo.bst[k]).map(k => `<button data-bs="${k}">${esc(BSTAT_LABEL[k])}: <b>${mo.bst[k].toLocaleString()}</b></button>`).join('');
+  const payers = [...mo.payerOwed.entries()].sort((a, b) => b[1] - a[1]);
+  const top = payers.slice(0, 5).map(([p, v]) => `${esc(p)} <b>${fmt.format(v)}</b>`).join(' · ');
+  const more = payers.length > 5 ? ` · ${payers.length - 5} more` : '';
+  return `<tr class="detail"><td colspan="${COLS}" style="padding:0"><div class="patbar" style="flex-direction:column;align-items:flex-start">
+    <div class="stats"><span>Invoices this month:</span>${stats}</div>
+    ${bst ? `<div class="stats"><span>Biller status:</span>${bst}${mo.bst.none ? `<button data-bs="none">No activity: <b>${mo.bst.none.toLocaleString()}</b></button>` : ''}</div>` : ''}
+    ${payers.length ? `<div>Pending with insurance, by payer: ${top}${more}</div>` : ''}
+    ${mo.nB ? `<div>Pending with patients: <b>${fmt.format(mo.ptOwed)}</b> across ${[...mo.pats.values()].filter(p => p.ptOwed > 0.004).length.toLocaleString()} patients</div>` : ''}
+    ${mo.nO ? `<div class="na">${mo.nO.toLocaleString()} charge lines in this month come from the Office Mate report, which has no patient payments or patient balances.</div>` : ''}
+  </div></td></tr>`;
+}
+function renderTable(months) {
+  const { T, n: npats } = totals(months);
+  const q = $('q').value.trim();
+  let h = '';
+  for (const mo of months) {
+    const open = S.openMonths.has(mo.m) || (q && mo.pats.size <= 50);
+    h += `<tr class="month${open ? ' open' : ''}" data-m="${mo.m}"><td><span class="caret">▸</span>${monthLabel(mo.m)}${mo.nO && !mo.nB ? srcPill('om') : ''}</td><td>${mo.pats.size.toLocaleString()}</td>${cells(mo)}<td class="st muted">${collected(mo)}</td><td class="st"></td></tr>`;
+    if (!open) continue;
+    h += monthBar(mo);
+    for (const [pk, p] of sortedPats(mo)) {
+      const id = mo.m + '|' + pk, popen = S.openPats.has(id);
+      h += `<tr class="pat${popen ? ' open' : ''}" data-id="${esc(id)}"><td><span class="caret">▸</span>${esc(p.name)}<span class="mrn">${p.mrn ? 'MRN ' + esc(p.mrn) : ''}</span>${p.src === 'om' ? srcPill('om') : ''}</td><td>${p.invs.size} inv.</td>${cells(p)}<td class="st">${pill(p.status)}</td><td class="st">${bpill(p.bstat)}</td></tr>`;
+      if (popen) h += `<tr class="detail"><td colspan="${COLS}">${invoiceDetail(p)}</td></tr>`;
+    }
+  }
+  if (!months.length) h = `<tr><td colspan="${COLS}" class="muted">Nothing matches these filters.</td></tr>`;
+  else h += `<tr class="total"><td>Total</td><td>${npats.toLocaleString()}</td>${cells(T)}<td class="st muted">${collected(T)}</td><td></td></tr>`;
+  const tb = $('tbl').tBodies[0]; tb.innerHTML = h;
+  tb.querySelectorAll('tr.month').forEach(tr => tr.onclick = () => { const m = tr.dataset.m; S.openMonths.has(m) ? S.openMonths.delete(m) : S.openMonths.add(m); renderTable(lastMonths); });
+  tb.querySelectorAll('tr.pat').forEach(tr => tr.onclick = e => { if (e.target.closest('a')) return; const id = tr.dataset.id; S.openPats.has(id) ? S.openPats.delete(id) : S.openPats.add(id); renderTable(lastMonths); });
+  tb.querySelectorAll('tr.detail').forEach(tr => tr.onclick = e => e.stopPropagation());
+  tb.querySelectorAll('.stats button[data-st]').forEach(b => b.onclick = e => { e.stopPropagation(); $('status').value = b.dataset.st; render(); });
+  tb.querySelectorAll('.stats button[data-bs]').forEach(b => b.onclick = e => { e.stopPropagation(); $('bstat').value = b.dataset.bs; render(); });
+  $('expAll').textContent = months.length && months.every(m => S.openMonths.has(m.m)) ? 'Collapse all' : 'Expand all';
+}
+function invoiceDetail(p) {
+  let h = '';
+  const invs = [...p.invs.values()].sort((a, b) => String(a.key).localeCompare(String(b.key), undefined, { numeric: true }));
+  for (const iv of invs) {
+    const v = M.invs.get(iv.key);
+    const label = iv.key.startsWith('L:') ? 'Invoice (no number)' : iv.key.startsWith('OM:') ? `Office Mate slip #${esc(iv.key.slice(3))}` : iv.key.startsWith('R:') || iv.key.startsWith('P:') ? 'Line without invoice number' : `Invoice #${esc(iv.key)}`;
+    let owed = '';
+    if (v && v.src === 'om') owed = ` <span class="muted" style="font-weight:400">Charges ${fmt.format(v.tot)} (insurance share after adjustments ${fmt.format(v.iResp)}, patient share ${fmt.format(v.pResp)}) · insurance paid ${fmt.format(v.insPaid)} · insurance adjustments ${fmt.format(v.adj)} · pending with ${esc(v.payer || 'insurance')} ${money(v.insOwed)} · patient payments not in this report</span>`;
+    else if (v) owed = ` <span class="muted" style="font-weight:400">Net ${fmt.format(v.net)}${v.disc > 0.004 ? ` (after ${fmt.format(v.disc)} discount)` : ''} · insurance paid ${fmt.format(v.insPaid)} · patient paid ${fmt.format(v.ptPaid)}${v.ptRef > 0.004 ? ` less ${fmt.format(v.ptRef)} refunded` : ''} · ` +
+      `pending with ${esc(v.payer || 'insurance')} ${money(v.insOwed)} · pending with patient ${money(v.ptOwed)}</span>`;
+    h += `<div class="inv"><h4>${label} ${pill(iv.status)}${owed}${iv.link ? ` <a href="${esc(iv.link)}" target="_blank" rel="noopener">Open in Barti ↗</a>` : ''}</h4>`;
+    if (v && v.src !== 'om' && M.hasPaidCols && (Math.abs(v.bInsPaid - v.insPaid) > 0.01 || Math.abs(v.bPtPaid - v.ptRef - v.ptPaidNet) > 0.01))
+      h += `<div class="note neg" style="margin:0 0 6px">Barti's charge report shows insurance paid ${fmt.format(v.bInsPaid)} and patient paid ${fmt.format(v.bPtPaid - v.ptRef)} on this invoice, but the payment reports show ${fmt.format(v.insPaid)} and ${fmt.format(v.ptPaidNet)}. Pending amounts above use the payment reports.</div>`;
+    if (iv.lines.length) {
+      h += `<table><thead><tr><th>Charge date</th><th>Service date</th><th>Code</th><th class="wrap">Description</th><th>Qty</th><th>Provider</th><th>Charge</th><th>Adjustment</th><th>Net</th></tr></thead><tbody>`;
+      for (const c of iv.lines) h += `<tr><td>${c.date || '—'}</td><td>${c.svc || '—'}</td><td>${esc(c.code)}</td><td class="wrap">${esc(c.desc)}</td><td>${c.qty}</td><td style="text-align:left">${esc(c.staff)}</td><td>${money(c.total)}</td><td>${money(c.adj)}</td><td>${money(c.total - c.adj)}</td></tr>`;
+      h += `</tbody></table>`;
+    }
+    if (iv.pays.length) {
+      h += `<table style="margin-top:6px"><thead><tr><th>Payment date</th><th>Type</th><th>Method</th><th>Payer</th><th>Reference</th><th>Amount</th></tr></thead><tbody>`;
+      for (const x of iv.pays.slice().sort((a, b) => a.date.localeCompare(b.date))) h += `<tr><td>${x.dateMissing ? `<span class="na" title="No payment date in the report; placed by service date">${x.date || '—'} ~</span>` : x.date}</td><td>${x.kind === 'ins' ? 'Insurance' : 'Patient'}</td><td>${esc(x.method)}</td><td style="text-align:left">${esc(x.payerName)}</td><td style="text-align:left">${esc(x.notes)}</td><td>${money(x.amt)}</td></tr>`;
+      h += `</tbody></table>`;
+    }
+    if (v && v.notes.length) {
+      h += `<table style="margin-top:6px"><thead><tr><th>Worked</th><th>Log</th><th class="wrap">Status</th><th class="wrap">Action</th><th>Payer</th><th>Amount</th><th>Biller</th><th class="wrap">Comment</th></tr></thead><tbody>`;
+      for (const n of v.notes) h += `<tr><td>${n.date || '—'}</td><td style="text-align:left">${esc(n.src)}</td><td class="wrap">${esc(n.status)}</td><td class="wrap">${esc(n.action)}${n.resp ? ` <span class="muted">(${esc(n.resp)})</span>` : ''}</td><td style="text-align:left">${esc(n.payer)}</td><td>${n.amount ? money(n.amount) : ''}</td><td style="text-align:left">${esc(n.biller)}</td><td class="wrap">${esc(n.comment)}</td></tr>`;
+      h += `</tbody></table>`;
+    }
+    if (!iv.lines.length && iv.pays.length) h += `<div class="note">No charge for this invoice in this month (charge posted in another month or not in the charge report).</div>`;
+    h += `</div>`;
+  }
+  return h;
+}
+
+// ---------- biller insights ----------
+// Each insight is a worklist: the invoices (or payments) behind it, what it means, and what to do.
+// They follow the month range, date-of-service, system and location filters; the status filters do not apply.
+const S_INS = { open: new Set(), last: [] };
+const daysBetween = (a, b) => a && b ? Math.round((Date.parse(b) - Date.parse(a)) / 864e5) : null;
+const bucket = d => d > 90 ? '90+ days' : d > 60 ? '61–90 days' : d > 30 ? '31–60 days' : '0–30 days';
+function computeInsights() {
+  const from = $('from').value, to = $('to').value, loc = $('loc').value;
+  const inView = (d, l) => { const m = (d || '').slice(0, 7); return m >= from && m <= to && (!loc || l === loc); };
+  const invsAll = [...M.invs.values()].filter(v => !v.dup && inView(S.basis === 'post' ? v.date : v.svc, v.loc) && dosOk(v.svc) && srcOk(v.src));
+  const invs = invsAll.filter(v => v.src !== 'om'), omInvs = invsAll.filter(v => v.src === 'om');
+  const pays = M.payments.filter(p => p.src !== 'om' && inView(monthOf(p, true) + '-01', p.loc) && dosOk(svcOf(p, true)) && srcOk(p.src));
+  const allDates = [...M.charges.filter(c => c.src !== 'om').map(c => c.date), ...M.payments.filter(p => !p.dateMissing).map(p => p.date)].filter(Boolean).sort();
+  const asOf = allDates[allDates.length - 1] || nowIso();
+  const payDates = M.payments.filter(p => p.src !== 'om' && !p.dateMissing).map(p => p.date).filter(Boolean).sort();
+  const payStart = payDates[0];
+  const bartiCharges = M.charges.filter(c => c.src !== 'om');
+  const chargeStart = bartiCharges.map(c => c.date).filter(Boolean).sort()[0];
+  const row = (v, amt, note, payer) => ({ name: M.names.get(v.mrn) || v.name, mrn: v.mrn, inv: v.key, svc: v.svc, age: daysBetween(v.svc, asOf), payer: payer ?? v.payer, amt, note, link: v.link, bstat: v.bstat });
+  const sum = rows => rows.reduce((s, r) => s + r.amt, 0);
+  const byAge = rows => { const b = {}; for (const r of rows) { const k = bucket(r.age); b[k] = (b[k] || 0) + r.amt; } return ['90+ days', '61–90 days', '31–60 days'].filter(k => b[k]).map(k => `${k} <b>${fmt.format(b[k])}</b>`).join(' · '); };
+  const topPayers = rows => { const m = new Map(); for (const r of rows) m.set(r.payer || '(not named)', (m.get(r.payer || '(not named)') || 0) + r.amt); return [...m].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([p, v]) => `${esc(p)} <b>${fmt.format(v)}</b>`).join(' · '); };
+  const out = [];
+  const add = (o) => { if (o.rows.length) out.push(o); };
+  const byAmt = rows => rows.sort((a, b) => Math.abs(b.amt) - Math.abs(a.amt));
+  const latestNote = v => v.latest ? `${v.latest.src} ${v.latest.date || ''}: ${v.latest.status}${v.latest.action ? ' · ' + v.latest.action : ''}` : 'No biller activity logged';
+
+  // 1. Payment files start later than charges: older invoices look unpaid when they may not be.
+  if (payStart && chargeStart && payStart > chargeStart) {
+    const early = invs.filter(v => v.date < payStart && v.owed > 0.01);
+    add({ id: 'coverage', sev: 'high', title: 'Payment reports start later than the charge report', rows: byAmt(early.map(v => row(v, v.owed, `Charged ${v.date}`))),
+      why: `Payments start <b>${payStart}</b> but charges go back to <b>${chargeStart}</b>. Payments received before ${payStart} are missing, so these invoices may show as pending even if they were paid.`,
+      todo: `Re-export both payment reports from the charge report's start date, then drop them in again. Don't chase these invoices until then.` });
+  }
+  // 2. Barti's own per-charge "paid" figures disagree with the payment reports.
+  if (M.hasPaidCols) {
+    const dis = invs.filter(v => Math.abs(v.bInsPaid - v.insPaid) > 0.01);
+    add({ id: 'bartipaid', sev: 'high', title: 'Barti shows insurance "paid" that is not in the insurance payment report', rows: byAmt(dis.map(v => row(v, v.bInsPaid - v.insPaid, `Barti paid ${fmt.format(v.bInsPaid)} vs payment report ${fmt.format(v.insPaid)}${Math.abs(v.bInsPaid - v.iResp) < 0.01 ? ' · Barti marked the full insurance share as paid' : ''} · ${latestNote(v)}`))),
+      why: () => `On these invoices the charge report's "Insurance Paid" column differs from the insurance payments actually received. In most cases Barti shows the whole insurance share as paid, which usually means the claim was closed with an adjustment or a secondary (COB) write-off rather than money. Top payers: ${topPayers(S_INS.cur.rows)}.`,
+      todo: 'Open the invoice in Barti and check how the "paid" amount was posted. If it was a write-off or contractual adjustment, record it as an adjustment so reports show it correctly. If money really came in, find the missing payment in the deposit records. This dashboard counts only the payment reports as money received.' });
+    const disPt = invs.filter(v => Math.abs((v.bPtPaid - v.ptRef) - v.ptPaidNet) > 0.01);
+    add({ id: 'bartiptpaid', sev: 'info', title: 'Patient payments that differ between the charge report and the patient payment report', rows: byAmt(disPt.map(v => row(v, v.ptPaidNet - (v.bPtPaid - v.ptRef), `Payment report ${fmt.format(v.ptPaidNet)} vs Barti ${fmt.format(v.bPtPaid - v.ptRef)}`, 'Patient'))),
+      why: 'Small differences are usually card processing fees or tips collected with the payment; larger ones can be payments moved between invoices.',
+      todo: 'Nothing to chase unless the difference is large. The pending amounts use the patient payment report.' });
+  }
+  // 3. Insurance never paid anything on a claim older than 30 days.
+  const noIns = invs.filter(v => v.iResp > 0.01 && Math.abs(v.insPaid) < 0.01 && v.insOwed > 0.01 && daysBetween(v.svc, asOf) > 30 && !(payStart && v.date < payStart));
+  add({ id: 'noins', sev: 'high', title: 'Insurance claims with no payment after 30+ days', rows: byAmt(noIns.map(v => row(v, v.insOwed, (v.pays.some(p => p.kind === 'ins') ? '$0 insurance payment posted' : 'No insurance payment posted') + ' · ' + latestNote(v)))),
+    why: () => `Aging: ${byAge(S_INS.cur.rows)}. Top payers: ${topPayers(S_INS.cur.rows)}.`,
+    todo: 'Check claim status with the payer or clearinghouse. Resubmit claims that were never received, and work denials before the payer’s timely-filing limit (often 90–180 days).' });
+  // 4. Denied per the denial log and still unpaid.
+  const denied = invsAll.filter(v => v.denial && v.insOwed > 0.01);
+  add({ id: 'denied', sev: 'high', title: 'Denied claims (per the denial log) still unpaid', rows: byAmt(denied.map(v => row(v, v.insOwed, `${v.denial.status} on ${v.denial.date || '—'} by ${v.denial.payer} · ${latestNote(v)}`))),
+    why: () => { const codes = new Map(); for (const r of S_INS.cur.rows) { const c = (r.note.match(/^Denied (\S+)/) || [])[1] || '?'; codes.set(c, (codes.get(c) || 0) + 1); } return `Denial codes: ${[...codes].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([c, n]) => `${esc(c)} <b>${n}</b>`).join(' · ')}. CO-16 = missing information, CO-45/PR-96 = non-covered or over fee schedule, PR-49 = routine exam not covered, OA-18 = duplicate claim, CO-29 = past timely filing.`; },
+    todo: 'Work by code: fix and resubmit CO-16; bill the patient or write off CO-45/PR-96/PR-49 per the contract; check OA-18 duplicates against the original claim; appeal CO-29 only with proof of timely submission.' });
+  // 5. $0 insurance payment lines: usually a denial or the full amount applied to deductible.
+  const zeroIns = invs.filter(v => v.insOwed > 0.01 && v.pays.some(p => p.kind === 'ins' && Math.abs(p.amt) < 0.005) && Math.abs(v.insPaid) < 0.01 && !v.denial);
+  add({ id: 'zeroins', sev: 'high', title: '$0 insurance payments: possible denials not in the denial log', rows: byAmt(zeroIns.map(v => row(v, v.insOwed, 'Ref ' + (v.pays.find(p => p.kind === 'ins' && Math.abs(p.amt) < 0.005).notes || '—') + ' · ' + latestNote(v)))),
+    why: 'Insurance posted a $0 payment but the invoice still expects insurance to pay, and the denial log has no entry for it. That usually means a denial, or the amount went to the patient’s deductible.',
+    todo: 'Open the EOB/ERA. If it was denied, add it to the denial log, then correct and resubmit or appeal. If it went to deductible or coinsurance, move the balance to patient responsibility so the patient gets billed.' });
+  // 6. Unpaid insurance with no biller activity at all.
+  if (M.notes.length) {
+    const quiet = invsAll.filter(v => v.insOwed > 0.01 && !v.notes.length && daysBetween(v.svc, asOf) > 30 && !(payStart && v.src !== 'om' && v.date < payStart));
+    add({ id: 'noactivity', sev: 'med', title: 'Unpaid insurance balances with no entry in any worklog', rows: byAmt(quiet.map(v => row(v, v.insOwed, `${daysBetween(v.svc, asOf)} days since service · ${v.src === 'om' ? 'Office Mate' : 'Barti'}`))),
+      why: () => `These invoices still expect insurance money but appear in none of the AR, posting, submission or denial logs. Aging: ${byAge(S_INS.cur.rows)}.`,
+      todo: 'Add them to the AR worklog and check claim status. If a log exists that was not uploaded, drop it in and this list will shrink.' });
+    const client = invsAll.filter(v => v.insOwed > 0.01 && v.latest && /client|assistance|approval|need to contact|need additional/i.test(`${v.latest.resp || ''} ${v.latest.action || ''}`));
+    add({ id: 'client', sev: 'med', title: 'Waiting on the practice (client assistance needed)', rows: byAmt(client.map(v => row(v, v.insOwed, latestNote(v)))),
+      why: 'The billers marked these as needing something from the practice: a signature, a corrected record, an approval to bill the patient, or lab paperwork.',
+      todo: 'Review this list with the practice manager each week and clear what is blocking each claim.' });
+  }
+  // 7. Insurance paid something but less than expected.
+  const underIns = invs.filter(v => v.insPaid > 0.01 && v.insOwed > 1);
+  add({ id: 'underins', sev: 'med', title: 'Insurance paid less than expected', rows: byAmt(underIns.map(v => row(v, v.insOwed, `Paid ${fmt.format(v.insPaid)} of ${fmt.format(v.iResp)} expected · ${latestNote(v)}`))),
+    why: () => `Insurance paid part of the claim and the rest is still marked as insurance’s. Top payers: ${topPayers(S_INS.cur.rows)}.`,
+    todo: 'Compare the payment with the EOB. Write off the contractual amount, move deductible/copay to the patient, or appeal underpayments against the fee schedule.' });
+  // 8. Patient balances aging.
+  const ptAged = invs.filter(v => v.ptOwed > 0.01 && daysBetween(v.svc, asOf) > 30 && !(payStart && v.date < payStart));
+  add({ id: 'ptaged', sev: 'med', title: 'Patient balances older than 30 days', rows: byAmt(ptAged.map(v => row(v, v.ptOwed, Math.abs(v.ptPaidNet) < 0.01 ? 'No patient payment yet' : `Patient paid ${fmt.format(v.ptPaidNet)}`, ''))),
+    why: () => `Aging: ${byAge(S_INS.cur.rows)}.`,
+    todo: 'Send statements. Call or text balances over 60 days, and set up payment plans for large balances. Check the 90+ list before sending anything to collections.' });
+  // 9. Insurance paid more than the insurance share: patient share is probably overstated.
+  const overIns = invs.filter(v => v.insPaid > v.iResp + 0.01);
+  add({ id: 'overins', sev: 'med', title: 'Insurance paid more than its expected share', rows: byAmt(overIns.map(v => row(v, v.insPaid - v.iResp, `Expected ${fmt.format(v.iResp)}, paid ${fmt.format(v.insPaid)}`))),
+    why: 'The invoice’s insurance/patient split in Barti doesn’t match what insurance actually paid. The patient may be billed for an amount insurance already covered.',
+    todo: 'Update the responsibility split on the invoice so the patient’s statement is correct. If the patient already paid that part, issue a refund.' });
+  // 10. Patient overpaid while insurance still owes.
+  const ptOver = invs.filter(v => v.insOwed > 0.01 && v.ptOwed < -0.01);
+  add({ id: 'ptover', sev: 'med', title: 'Patient paid more than their share while insurance still owes', rows: byAmt(ptOver.map(v => row(v, -v.ptOwed, `Insurance still owes ${fmt.format(v.insOwed)}; patient is ${fmt.format(-v.ptOwed)} over`))),
+    why: 'The patient covered part of what the invoice assigns to insurance. When the claim pays, the patient will be due a refund unless the split is corrected.',
+    todo: 'If the insurance claim is really collectible, plan the refund. If not (denied, non-covered), move the balance to patient responsibility so the invoice is simply paid.' });
+  // 11. Credits: payments exceed the charge.
+  const credits = invs.filter(v => v.owed < -0.01);
+  const openBy = new Map(); for (const v of M.invs.values()) if (v.owed > 0.01) openBy.set(v.mrn, (openBy.get(v.mrn) || 0) + v.owed);
+  const offset = credits.filter(v => openBy.has(v.mrn));
+  add({ id: 'credits', sev: 'med', title: 'Overpaid invoices / credit balances', rows: byAmt(credits.map(v => row(v, -v.owed, openBy.has(v.mrn) ? `Patient has ${fmt.format(openBy.get(v.mrn))} open elsewhere` : 'No other open balance'))),
+    why: `<b>${offset.length.toLocaleString()}</b> of these patients have open balances on other invoices, so the credit can be applied there instead of refunded.`,
+    todo: 'Apply the credit to the patient’s other open invoices. If there are none, refund the patient or payer (insurer overpayments usually have a refund deadline).' });
+  // 12. Insurance takebacks.
+  const recoup = pays.filter(p => p.kind === 'ins' && p.amt < -0.005);
+  add({ id: 'recoup', sev: 'med', title: 'Insurance takebacks (negative payments)', rows: byAmt(recoup.map(p => ({ name: M.names.get(p.mrn) || p.name, mrn: p.mrn, inv: p.inv, svc: p.chargeSvc || p.svc, age: null, payer: p.payerName, amt: p.amt, note: `Taken back ${p.date}${p.notes ? ' · ref ' + p.notes : ''}`, link: p.link }))),
+    why: 'The payer took money back. Often it’s a reversal followed by a corrected repayment, but sometimes nothing comes back.',
+    todo: 'For each takeback, confirm a corrected payment followed. If not, find the reason on the ERA (wrong payer, eligibility, coding) and rebill or appeal.' });
+  // 13. Possible double-posted payments.
+  const seen = new Map();
+  for (const p of pays) if (Math.abs(p.amt) > 0.005) { const k = [p.inv, p.kind, p.date, p.amt.toFixed(2)].join('|'); seen.set(k, [...(seen.get(k) || []), p]); }
+  const dups = [...seen.values()].filter(a => a.length > 1);
+  add({ id: 'dups', sev: 'med', title: 'Possible duplicate payments', rows: byAmt(dups.map(a => { const p = a[0]; return { name: M.names.get(p.mrn) || p.name, mrn: p.mrn, inv: p.inv, svc: p.chargeSvc || p.svc, age: null, payer: p.kind === 'ins' ? p.payerName : 'Patient', amt: p.amt * (a.length - 1), note: `${a.length} × ${fmt.format(p.amt)} on ${p.date} (${a.map(x => x.method).join(', ')})`, link: p.link }; })),
+    why: 'The same amount was posted to the same invoice on the same day more than once.',
+    todo: 'Check the deposit or card batch. If it was posted twice by mistake, reverse the extra posting. If the patient was charged twice, refund them.' });
+  // 14. Charges entered long after the visit: timely-filing risk and a sign of a posting backlog.
+  const late = invs.filter(v => daysBetween(v.svc, v.date) > 30 && v.net > 0.01);
+  add({ id: 'late', sev: 'med', title: 'Charges posted more than 30 days after the visit', rows: byAmt(late.map(v => row(v, v.net, `Charged ${v.date}, ${daysBetween(v.svc, v.date)} days after service · ${STATUS[v.status].label}`))),
+    why: () => `Late charges shorten the time left to file claims, and some payers deny claims filed after 90 days. Still unpaid among these: <b>${fmt.format(S_INS.cur.rows.reduce((s, r) => s + Math.max(0, M.invs.get(r.inv).owed), 0))}</b>.`,
+    todo: 'Submit the unpaid ones first, oldest service date first. Some will be re-bills or corrected charges (check the invoice history in Barti); for the rest, find out why they were entered late, e.g. unsigned exams or a superbill backlog.' });
+  // 15. Office Mate legacy insurance balances.
+  const omOpen = omInvs.filter(v => v.insOwed > 0.01);
+  add({ id: 'omlegacy', sev: 'med', title: 'Office Mate (legacy system) insurance balances still open', rows: byAmt(omOpen.map(v => row(v, v.insOwed, `${daysBetween(v.svc, asOf)} days since service · ${latestNote(v)}`))),
+    why: () => `Insurance balances left in Office Mate as of its report date. Aging: ${byAge(S_INS.cur.rows)}. Top payers: ${topPayers(S_INS.cur.rows)}. Patient balances are not in that report.`,
+    todo: 'Most of these are past or near timely-filing limits. Decide per payer what is still collectible, appeal with proof where it is, and write off the rest so the legacy AR stops inflating the totals.' });
+  // 15b. Office Mate slips that were also entered in Barti (system changeover).
+  const omDup = [...M.invs.values()].filter(v => v.dup && inView(v.svc, v.loc) && dosOk(v.svc));
+  add({ id: 'omdup', sev: 'info', title: 'Office Mate slips that also exist in Barti (left out of the totals)', rows: byAmt(omDup.map(v => row(v, v.insOwed, `Office Mate shows insurance balance ${fmt.format(v.insOwed)} · same patient and service date entered in Barti`))),
+    why: 'Around the move to Barti the same visit was entered in both systems. These slips are excluded from every total so nothing is counted twice; the Barti invoice is the one that counts.',
+    todo: 'Make sure these claims are being worked in one system only. If Office Mate still shows an insurance balance that Barti does not, bring it across or close it in Office Mate.' });
+  // 16. Payments with no charge.
+  const orphan = pays.filter(p => !p.matched);
+  add({ id: 'orphan', sev: 'info', title: 'Payments with no matching charge', rows: byAmt(orphan.map(p => ({ name: M.names.get(p.mrn) || p.name, mrn: p.mrn, inv: p.inv, svc: p.svc || p.invDate, age: null, payer: p.kind === 'ins' ? p.payerName : 'Patient', amt: p.amt, note: `Paid ${p.date}, invoice dated ${p.invDate || '—'}`, link: p.link }))),
+    why: 'These payments’ invoices aren’t in the charge report. Usually the invoice is older than the report’s date range, or the charge was voided after payment.',
+    todo: 'Open the invoice in Barti. If the charge was voided, refund or move the payment. If it’s just older, export the charge report from an earlier date.' });
+  // 17. Insurance expected but no insurer named on the invoice.
+  const noPayerAll = invs.filter(v => v.iResp > 0.01 && !v.payer);
+  const noPayer = noPayerAll.filter(v => v.insOwed > 0.01);
+  const lastIns = v => v.pays.filter(p => p.kind === 'ins' && p.payerName).map(p => p.payerName).pop();
+  add({ id: 'nopayer', sev: 'med', title: 'Insurance still owed, but no insurer on the invoice', rows: byAmt(noPayer.map(v => row(v, v.insOwed, lastIns(v) ? `Insurer per payments: ${lastIns(v)}` : 'No insurance payment either', ''))),
+    why: `Insurance is expected to pay part of these invoices, but the "Insurance Billed" field is blank, so a claim may never have been sent. (Another ${(noPayerAll.length - noPayer.length).toLocaleString()} invoices have the same blank field but insurance already paid them.)`,
+    todo: 'Add the patient’s insurance to the invoice and submit the claim, or move the amount to patient responsibility if they’re self-pay.' });
+  // 18. Payer name variants that were merged.
+  const variants = new Map();
+  for (const c of M.charges) if (c.payer) { const k = canonPayer(c.payer); if (!variants.has(k)) variants.set(k, new Set()); variants.get(k).add(c.payer); }
+  const multi = [...variants].filter(([, s]) => s.size > 1);
+  const payerAmt = new Map(); for (const c of M.charges) if (c.payer) { const k = canonPayer(c.payer); payerAmt.set(k, (payerAmt.get(k) || 0) + c.total); }
+  add({ id: 'payers', sev: 'info', title: 'Same insurer recorded under different names', rows: multi.map(([k, s]) => ({ name: k, mrn: '', inv: '', svc: '', age: null, payer: [...s].join(' / '), amt: payerAmt.get(k) || 0, note: `${s.size} spellings`, link: '' })),
+    why: 'This dashboard merges these spellings in the by-payer totals. In the billing system they’re still separate, which splits payer reports and can cause claims to go to the wrong payer ID.',
+    todo: 'Standardize the insurance company list in Barti, and pick one entry per payer for new patients.', payerList: true });
+  const rank = { high: 0, med: 1, info: 2 };
+  return { list: out.sort((a, b) => rank[a.sev] - rank[b.sev]), asOf };
+}
+
+function renderInsights() {
+  const { list, asOf } = computeInsights();
+  S_INS.last = list;
+  $('insAsOf').textContent = asOf ? `Ages counted from date of service to ${asOf}, the latest date in the files.` : '';
+  const icon = { high: '!', med: '▲', info: 'i' };
+  let h = '';
+  for (const o of list) {
+    S_INS.cur = o;
+    const total = o.rows.reduce((s, r) => s + r.amt, 0);
+    const why = typeof o.why === 'function' ? o.why() : o.why;
+    const open = S_INS.open.has(o.id);
+    h += `<div class="ins" data-id="${o.id}"><div class="ins-h"><span class="ic sev-${o.sev}" title="${o.sev === 'high' ? 'High priority' : o.sev === 'med' ? 'Medium priority' : 'For information'}">${icon[o.sev]}</span>
+      <span class="ti">${esc(o.title)}</span>
+      <span class="fig">${o.payerList ? `${o.rows.length} insurers` : `${o.rows.length.toLocaleString()} <span class="muted">${o.rows.length === 1 ? 'item' : 'items'}</span> · ${money(total)}`}</span></div>
+      <p>${why}</p><p><b>What to do:</b> ${o.todo}</p>
+      ${o.rows.length ? `<div class="act"><button data-act="toggle">${open ? 'Hide list' : 'Show list'}</button><button data-act="csv">Export CSV</button></div>` : ''}
+      ${open ? insightList(o) : ''}</div>`;
+  }
+  $('insights').innerHTML = h || '<p class="muted">No issues found for these filters.</p>';
+  $('insights').querySelectorAll('.ins button').forEach(b => b.onclick = () => {
+    const id = b.closest('.ins').dataset.id, o = S_INS.last.find(x => x.id === id);
+    if (b.dataset.act === 'csv') return download(`VEC insight - ${o.title.replace(/[\\/:*?"<>|]/g, ' ')}.csv`, insightRows(o));
+    S_INS.open.has(id) ? S_INS.open.delete(id) : S_INS.open.add(id);
+    renderInsights();
+  });
+  const tips = suggestions(list);
+  $('suggest').innerHTML = tips.length ? `<div class="suggest"><h3>Suggestions before billers start</h3><ol>${tips.map(t => `<li>${t}</li>`).join('')}</ol></div>` : '';
+}
+// Plain-language advice built from the insight results: what to fix or check first so billers
+// don't chase amounts that are really data gaps.
+function suggestions(list) {
+  const get = id => list.find(o => o.id === id);
+  const sum = rows => rows.reduce((s, r) => s + r.amt, 0);
+  const n = x => x.toLocaleString();
+  const cDates = M.charges.filter(c => c.src !== 'om').map(c => c.date).filter(Boolean).sort(), pDates = M.payments.filter(p => !p.dateMissing).map(p => p.date).filter(Boolean).sort();
+  const out = [];
+  let o;
+  if ((o = get('coverage')))
+    out.push(`<b>Re-export the payment reports from ${cDates[0]}.</b> They currently start ${pDates[0]}. That will clear many of the ${n(o.rows.length)} invoices (${fmt.format(sum(o.rows))}) shown as "pending" before anyone spends time on them.`);
+  if ((o = get('bartipaid')))
+    out.push(`<b>Agree with Barti how "Insurance Paid" is set on closed claims.</b> ${n(o.rows.length)} invoices (${fmt.format(sum(o.rows))}) show insurance money in the charge report that never appears in the payment report. Until that is settled, treat the payment report as the money actually received.`);
+  const unmatchedOld = M.payments.filter(p => p.src !== 'om' && !p.matched && p.invDate && cDates[0] && p.invDate < cDates[0]);
+  if (unmatchedOld.length >= 10 || Math.abs(unmatchedOld.reduce((s, p) => s + p.amt, 0)) >= 500) {
+    const first = unmatchedOld.map(p => p.invDate).sort()[0];
+    out.push(`<b>Export the charge report from ${first}</b> so that ${n(unmatchedOld.length)} payments on older invoices (${fmt.format(unmatchedOld.reduce((s, p) => s + p.amt, 0))}) can be matched to their charges.`);
+  }
+  const edges = [];
+  if (cDates.length && cDates[0].slice(8) !== '01') edges.push(monthLabel(cDates[0].slice(0, 7)));
+  const last = cDates[cDates.length - 1];
+  if (last) { const d = new Date(Date.UTC(+last.slice(0, 4), +last.slice(5, 7), 0)).getUTCDate(); if (+last.slice(8) < d) edges.push(monthLabel(last.slice(0, 7))); }
+  if (pDates.length && pDates[0].slice(8) !== '01' && !edges.includes(monthLabel(pDates[0].slice(0, 7)))) edges.push(monthLabel(pDates[0].slice(0, 7)) + ' (payments)');
+  if (edges.length) out.push(`<b>${edges.join(' and ')} ${edges.length > 1 ? 'are partial months' : 'is a partial month'}</b> in these files. Don't compare ${edges.length > 1 ? 'them' : 'it'} with full months.`);
+  const pl = pDates[pDates.length - 1], cl = cDates[cDates.length - 1];
+  if (pl && cl && pl.slice(0, 7) > cl.slice(0, 7)) out.push(`<b>Payments run to ${pl} but charges stop at ${cl}.</b> Months after ${monthLabel(cl.slice(0, 7))} show payments with no charges; export the charge report through the same date for a complete picture.`);
+  if ((o = get('ptaged'))) {
+    const old = o.rows.filter(r => r.age > 90);
+    if (old.length) {
+      const credit = new Set([...M.invs.values()].filter(v => v.owed < -0.01).map(v => v.mrn));
+      const both = new Set(old.filter(r => credit.has(r.mrn)).map(r => r.mrn));
+      out.push(`<b>The 90+ day patient balances (${fmt.format(sum(old))} on ${n(old.length)} invoices) look large.</b> Spot-check a few in Barti before any go to collections, because payments recorded on a different invoice wouldn't show here.` +
+        (both.size ? ` ${n(both.size)} of these patients also have a credit on another invoice, so start with them.` : ''));
+    }
+  }
+  if ((o = get('denied'))) out.push(`<b>Work the ${n(o.rows.length)} logged denials (${fmt.format(sum(o.rows))}) before the older claims:</b> they already have a reason code, so the next step is known.`);
+  if ((o = get('noins'))) {
+    const old = o.rows.filter(r => r.age > 90);
+    if (old.length) out.push(`<b>Then the ${n(old.length)} insurance claims over 90 days old (${fmt.format(sum(old))}).</b> They are closest to the payers' timely-filing limits.`);
+  }
+  if ((o = get('noactivity'))) out.push(`<b>${n(o.rows.length)} unpaid insurance invoices (${fmt.format(sum(o.rows))}) are in none of the worklogs.</b> Either a log is missing from this upload, or nobody has looked at them yet.`);
+  if ((o = get('client'))) out.push(`<b>${n(o.rows.length)} claims (${fmt.format(sum(o.rows))}) are waiting on the practice itself.</b> These are the quickest to unblock: go through the list with the office manager.`);
+  if ((o = get('omlegacy'))) out.push(`<b>Decide what to do with the Office Mate balance of ${fmt.format(sum(o.rows))} on ${n(o.rows.length)} slips.</b> It is legacy AR from before the move to Barti; keep what is still appealable and write off the rest, otherwise it inflates every total.`);
+  if (get('zeroins')) out.push(`<b>Before working the $0 insurance payments, open a sample of their EOBs/ERAs.</b> Whether they're mostly denials or mostly deductible decides if billers appeal or bill the patient.`);
+  if ((o = get('recoup'))) {
+    let open = 0;
+    for (const r of o.rows) { const v = M.invs.get(r.inv); if (!(v && v.pays.some(p => p.kind === 'ins' && Math.abs(p.amt + r.amt) < 0.01))) open++; }
+    out.push(`<b>${n(o.rows.length - open)} of the ${n(o.rows.length)} insurance takebacks were paid back the same amount</b> (likely reversals and repostings). Focus on the other ${n(open)}.`);
+  }
+  if ((o = get('late'))) {
+    const veryOld = o.rows.filter(r => daysBetween(r.svc, M.invs.get(r.inv).date) > 180);
+    out.push(`<b>Check the invoice history before treating late charges as late.</b>` + (veryOld.length ? ` ${n(veryOld.length)} have service dates more than 6 months before the charge, which usually means a re-bill or correction rather than a missed charge.` : ' Some will be re-bills or corrections.'));
+  }
+  if (get('dups')) out.push(`<b>Confirm the possible duplicate payments against the deposit or card batch before reversing anything.</b> Two separate payments of the same amount on the same day can be legitimate.`);
+  if ((o = get('payers'))) out.push(`<b>Ask whoever maintains Barti's insurance list to merge the ${o.rows.length} duplicated insurers</b> (e.g. ${esc(o.rows[0].payer)}). Payer reports in Barti stay split until then.`);
+  const blank = [...M.invs.values()].filter(v => v.src !== 'om' && v.iResp > 0.01 && !v.payer && v.insPaid > 0.01).length;
+  if (blank) out.push(`<b>Fill in "Insurance Billed" on ${n(blank)} invoices that insurance already paid.</b> It's blank in Barti, so they're missing from payer reports.`);
+  return out;
+}
+function insightList(o) {
+  const shown = o.rows.slice(0, 300);
+  const head = o.payerList ? '<th class="l">Merged as</th><th class="l">Spellings</th><th>Charges billed</th>'
+    : '<th class="l">Patient</th><th>MRN</th><th>Invoice</th><th>Service date</th><th>Age</th><th class="l">Payer</th><th>Amount</th><th class="l">Detail</th>';
+  const body = shown.map(r => o.payerList
+    ? `<tr><td class="l">${esc(r.name)}</td><td class="l">${esc(r.payer)}</td><td>${money(r.amt)}</td></tr>`
+    : `<tr><td class="l">${esc(r.name)}</td><td>${esc(r.mrn)}</td><td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(String(r.inv).replace(/^L:.*/, 'open'))}</a>` : esc(String(r.inv).replace(/^OM:/, 'OM '))}</td><td>${r.svc || '—'}</td><td>${r.age == null ? '—' : r.age + 'd'}</td><td class="l">${esc(r.payer || '—')}</td><td>${money(r.amt)}</td><td class="l">${esc(r.note)}</td></tr>`).join('');
+  const more = o.rows.length > shown.length ? `<p class="note" style="margin:6px 8px">Showing the largest ${shown.length} of ${o.rows.length.toLocaleString()}. Export CSV for the full list.</p>` : '';
+  return `<div class="list"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${more}</div>`;
+}
+function insightRows(o, withTitle) {
+  const hdr = o.payerList ? ['Merged as', 'Spellings', 'Charges billed'] : ['Patient', 'MRN', 'Invoice', 'Service date', 'Age (days)', 'Payer', 'Amount', 'Detail', 'Barti link'];
+  const rows = o.rows.map(r => o.payerList ? [r.name, r.payer, moneyPlain(r.amt)] : [r.name, r.mrn, String(r.inv).replace(/^OM:/, 'OM '), r.svc, r.age ?? '', r.payer, moneyPlain(r.amt), r.note, r.link]);
+  return withTitle ? rows.map(r => [o.title, ...r]) : [hdr, ...rows];
+}
+$('csvIns').onclick = () => {
+  const rows = [['Insight', 'Patient', 'MRN', 'Invoice', 'Service date', 'Age (days)', 'Payer', 'Amount', 'Detail', 'Barti link']];
+  for (const o of S_INS.last) if (!o.payerList) rows.push(...insightRows(o, true));
+  download('VEC biller insights.csv', rows);
+};
+
+// ---------- data checks ----------
+function renderRecon() {
+  const ps = Object.values(S.parts);
+  let h = `<table class="recon"><thead><tr><th class="l">Report</th><th class="l">File</th><th>Rows used</th><th>Rows skipped</th><th>Total in rows</th><th>Report's own totals</th><th class="l">Check</th></tr></thead><tbody>`;
+  for (const p of ps) {
+    const tot = p.charges.length ? p.charges.reduce((s, c) => s + c.total, 0) : p.payments.length ? p.payments.reduce((s, x) => s + x.amt, 0) : p.notes.reduce((s, n) => s + (n.amount || 0), 0);
+    const ctl = Object.values(p.control).reduce((s, v) => s + v, 0), hasCtl = Object.keys(p.control).length > 0;
+    const ok = !hasCtl || Math.abs(ctl - tot) < 0.01;
+    const iss = Object.entries(p.issues || {});
+    const issTxt = iss.map(([k, v]) => `${v.n.toLocaleString()} ${{ badNumber: 'unreadable numbers', badDate: 'unreadable dates', payNoDate: 'payments without a payment date (placed by invoice date)', omBalance: 'Office Mate rows whose balance does not add up' }[k] || k} (e.g. ${v.samples.map(esc).join(', ')})`).join('; ');
+    const extra = [p.hiddenRows ? `${p.hiddenRows} hidden Excel rows were included` : '', p.dateOrder === 'dmy' ? 'dates read as DD/MM/YYYY' : '', p.role === 'charge' && p.hasPaidCols ? 'has Barti paid columns' : ''].filter(Boolean).join('; ');
+    h += `<tr><td class="l">${esc(ROLE_LABEL[p.role])}</td><td class="l">${esc(p.file)}${p.sheet ? ' › ' + esc(p.sheet) : ''}</td><td>${p.rows.toLocaleString()}</td><td>${p.skipped.toLocaleString()}</td><td>${fmt.format(tot)}</td><td>${hasCtl ? fmt.format(ctl) : '—'}</td><td class="l">${hasCtl ? (ok ? '<span class="ok">✓ Matches</span>' : `<span class="neg">✗ Off by ${fmt.format(tot - ctl)}</span>`) : (p.charges.length || p.payments.length ? '<span class="ok">✓ Read</span>' : '✓ Read')}${issTxt ? ` · <span class="neg">⚠ ${issTxt}</span>` : ''}${extra ? ` · ${extra}` : ''}</td></tr>`;
+  }
+  h += `</tbody></table>`;
+  const B = M.charges.filter(c => c.src !== 'om');
+  // Row-level identities in the Barti charge report. Any failure means a column was misread or the export changed.
+  if (B.length) {
+    const chk = [
+      ['Total = Subtotal − Discounts + Taxes', B.filter(c => Math.abs(c.sub - c.disc + c.tax - c.total) > 0.011).length],
+      ['Balance = Total − Adjustments', B.filter(c => Math.abs(c.total - c.adj - c.bal) > 0.011).length],
+      ['Patient Resp. + Insurance Resp. = Balance', B.filter(c => Math.abs(c.pResp + c.iResp - c.bal) > 0.011).length],
+    ];
+    if (M.hasPaidCols) chk.push(['Patient Paid − Refunds + Insurance Paid = Total Paid', B.filter(c => Math.abs(c.bPtPaid - c.bPtRef + c.bInsPaid - c.bTotPaid) > 0.011).length]);
+    h += `<p class="note"><b>Charge report arithmetic, checked on every row:</b> ` + chk.map(([l, n]) => `${l}: ${n ? `<span class="neg">✗ ${n.toLocaleString()} rows differ</span>` : '<span class="ok">✓</span>'}`).join(' · ') + `.</p>`;
+    const noInv = B.filter(c => c.noInv).length, noSvc = B.filter(c => !c.svc).length, noDate = B.filter(c => !c.date).length;
+    const sig = c => [c.inv, c.code, c.desc, c.total, c.adj, c.svc].join('|'); const seen = new Map(); for (const c of B) if (/^9\d{4}/.test(String(c.code)) && c.total > 0.004) seen.set(sig(c), (seen.get(sig(c)) || 0) + 1);
+    const dupExam = [...seen.values()].filter(n => n > 1).reduce((s, n) => s + n - 1, 0);
+    h += `<p class="note">Charge lines without an invoice number: ${noInv ? `<span class="neg">${noInv.toLocaleString()} (each kept as its own line)</span>` : '0'} · without a charge date: ${noDate ? `<span class="neg">${noDate.toLocaleString()} (left out of the month view)</span>` : '0'} · without a service date: ${noSvc.toLocaleString()} (products usually; invoice date is used in the date-of-service view) · exam codes (9xxxx) that appear twice on the same invoice with the same amount: ${dupExam ? `<span class="neg">${dupExam.toLocaleString()} — check for double entry</span>` : '0'}. Contact-lens products billed once per eye are expected and not counted here.</p>`;
+  }
+  const um = M.payments.filter(p => p.src !== 'om' && !p.matched);
+  const umIns = um.filter(p => p.kind === 'ins'), umPt = um.filter(p => p.kind === 'pt');
+  const sum = a => a.reduce((s, p) => s + p.amt, 0);
+  const mis = M.payments.filter(p => p.matched && M.invInfo.get(p.inv).mrn && p.mrn && M.invInfo.get(p.inv).mrn !== p.mrn);
+  const bartiPays = M.payments.filter(p => p.src !== 'om');
+  const invCount = new Set(B.map(c => c.inv)).size, omCount = new Set(M.charges.filter(c => c.src === 'om').map(c => c.inv)).size;
+  h += `<p class="note"><b>Matching:</b> payments and worklog entries are joined to charges by <b>invoice / fee slip number</b> (Barti invoice link ID as fallback), cross-checked against <b>Patient MRN</b>. Charge report: ${invCount.toLocaleString()} Barti invoices${omCount ? `; Office Mate: ${omCount.toLocaleString()} slips` : ''}.</p>`;
+  if (B.length && bartiPays.length) {
+    h += `<p class="note">Payments matched to a Barti invoice: <b>${(bartiPays.length - um.length).toLocaleString()} of ${bartiPays.length.toLocaleString()}</b>. ` +
+      `Not matched: ${umIns.length.toLocaleString()} insurance (${fmt.format(sum(umIns))}) and ${umPt.length.toLocaleString()} patient (${fmt.format(sum(umPt))}). They still count in the monthly payment totals; under "Location" they appear as "Payment not matched to a charge".` +
+      (mis.length ? ` <span class="neg">${mis.length} payments carry a different MRN than their invoice's charge. Review them in Barti.</span>` : ' MRNs agree on every matched payment.') + `</p>`;
+    if (M.hasPaidCols) {
+      const V = [...M.invs.values()].filter(v => v.src !== 'om');
+      const bIns = V.reduce((s, v) => s + v.bInsPaid, 0), fIns = V.reduce((s, v) => s + v.insPaid, 0), bPt = V.reduce((s, v) => s + v.bPtPaid - v.ptRef, 0), fPt = V.reduce((s, v) => s + v.ptPaidNet, 0), ref = V.reduce((s, v) => s + v.ptRef, 0);
+      const dIns = V.filter(v => Math.abs(v.bInsPaid - v.insPaid) > 0.01).length, dPt = V.filter(v => Math.abs((v.bPtPaid - v.ptRef) - v.ptPaidNet) > 0.01).length;
+      h += `<p class="note"><b>Cross-check against Barti's own paid columns:</b> insurance paid per charge report ${fmt.format(bIns)} vs per payment report ${fmt.format(fIns)} (${dIns.toLocaleString()} invoices differ) · patient paid net of refunds per charge report ${fmt.format(bPt)} vs per payment report ${fmt.format(fPt)} (${dPt.toLocaleString()} differ). Patient refunds in the charge report: ${fmt.format(ref)}; they carry no date, so they are deducted when working out pending balances but do not appear in the monthly payment columns. Pending balances use the payment reports; the differing invoices are listed under Biller insights.</p>`;
+    }
+  }
+  if (M.notes.length) {
+    const ns = M.noteStats;
+    h += `<p class="note"><b>Worklogs:</b> ${Object.entries(ns.bySrc).map(([k, v]) => `${esc(k)} ${v.matched.toLocaleString()} of ${v.n.toLocaleString()} entries matched to an invoice`).join(' · ')}. Unmatched entries usually refer to slips outside the charge reports' date ranges.</p>`;
+  }
+  const OM = M.charges.filter(c => c.src === 'om');
+  if (OM.length) {
+    const dups = [...M.invs.values()].filter(v => v.dup);
+    const migrated = B.filter(c => /office ?mate/i.test(String(c.desc)));
+    h += `<p class="note"><b>Office Mate and Barti overlap:</b> ${dups.length.toLocaleString()} Office Mate slips (charges ${fmt.format(dups.reduce((s, v) => s + v.tot, 0))}, adjustments ${fmt.format(dups.reduce((s, v) => s + v.adj, 0))}, insurance balance ${fmt.format(dups.reduce((s, v) => s + Math.max(0, v.insOwed), 0))}) have the same patient and service date as a Barti invoice and are left out of all totals (listed under Biller insights).` +
+      (migrated.length ? ` Barti also holds ${migrated.length.toLocaleString()} "OfficeMate Balances" lines totalling ${fmt.format(migrated.reduce((s, c) => s + c.total - c.adj, 0))} (balances brought across at the changeover); they stay in the Barti figures and do not overlap the Office Mate report, which carries insurance figures only.` : '') + `</p>`;
+  }
+  const cd = B.map(c => c.date).filter(Boolean).sort(), pd = bartiPays.filter(p => !p.dateMissing).map(p => p.date).filter(Boolean).sort(), od = OM.map(c => c.svc).filter(Boolean).sort();
+  h += `<p class="note">Date ranges: Barti charges ${cd[0] || '—'} to ${cd[cd.length - 1] || '—'} · Barti payments ${pd[0] || '—'} to ${pd[pd.length - 1] || '—'}${od.length ? ` · Office Mate service dates ${od[0]} to ${od[od.length - 1]}` : ''}. Months at the edges of these ranges may be partial.</p>`;
+  h += `<details style="margin-top:10px"><summary style="font-size:13px">Excel / CSV formatting the dashboard relies on</summary><ul class="checklist">
+    <li>The column headings must be present (any order, any extra columns): the dashboard finds the heading row anywhere in the first 15 rows and recognizes the report by it.</li>
+    <li>Amounts may be plain numbers, currency text like <code>$1,234.56</code>, or negatives as <code>-50</code>, <code>(50.00)</code> or <code>50.00-</code>. Anything else (e.g. "N/A", "pending") is counted as unreadable above and treated as 0, so fix those cells in the export.</li>
+    <li>Dates may be real Excel dates or text like <code>6/3/2026</code>, <code>2026-06-03</code>, <code>3-Jun-2026</code>. A file whose dates are DD/MM/YYYY is detected automatically.</li>
+    <li>Leading zeros, decimals or text formatting on invoice numbers and MRNs do not matter; <code>006012</code>, <code>6012</code> and <code>6012.0</code> are the same invoice.</li>
+    <li>Repeated heading rows, blank rows and subtotal/footer rows without an invoice number are skipped and counted in "Rows skipped". Hidden rows and filtered-out rows in Excel are still included.</li>
+    <li>Do not merge cells or put notes above the heading row that contain the words of a column heading. Keep one report per sheet; a workbook may hold several reports on separate sheets.</li>
+    <li>Fee-slip cells in worklogs may list several slips (<code>297082 &amp; 296553</code>, <code>299195/96</code>); the entry is attached to each.</li>
+  </ul></details>`;
+  $('recon').innerHTML = h;
+}
+
+// ---------- export ----------
+// Saves a CSV. Opened as a plain file the browser downloads it; on the hosted (claude.ai) copy the page
+// asks the viewer's permission through the downloads capability instead.
+let dl = null; (async () => { try { if (window.claude?.use) dl = await claude.use('downloads'); } catch (e) { dl = null; } })();
+async function download(name, rows) {
+  const csv = '﻿' + rows.map(r => r.map(v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(',')).join('\r\n');
+  if (dl) { try { await dl.save({ filename: name, data: new Blob([csv], { type: 'text/csv' }) }); } catch (e) { /* viewer declined */ } return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const basisTag = () => S.basis === 'post' ? 'posting-date' : 'service-date';
+$('csvMonth').onclick = () => {
+  const rows = [['Month', 'Patients', 'Charges billed', 'Discounts (already deducted)', 'Adjustments', 'Net charges', 'Insurance payments', 'Patient payments', 'Pending with insurance', 'Pending with patient', 'Total pending', 'Office Mate lines (patient side n/a)', ...STATUS_ORDER.map(k => STATUS[k].label + ' (invoices)')]];
+  for (const m of lastMonths) rows.push([monthLabel(m.m), m.pats.size, moneyPlain(m.charges), moneyPlain(m.disc), moneyPlain(m.adj), moneyPlain(m.charges - m.adj), moneyPlain(m.ins), m.nB ? moneyPlain(m.pt) : 'n/a', moneyPlain(m.insOwed), m.nB ? moneyPlain(m.ptOwed) : 'n/a', moneyPlain(m.bal), m.nO, ...STATUS_ORDER.map(k => m.stat[k] || 0)]);
+  download(`VEC monthly summary (${basisTag()}).csv`, rows);
+};
+$('csvPat').onclick = () => {
+  const rows = [['Month', 'Patient', 'MRN', 'System', 'Status', 'Biller status', 'Latest biller note', 'Insurance billed', 'Invoices', 'Charges billed', 'Discounts', 'Adjustments', 'Net charges', 'Insurance payments', 'Patient payments', 'Pending with insurance', 'Pending with patient', 'Total pending']];
+  for (const m of lastMonths) for (const [, p] of sortedPats(m)) {
+    const vs = [...p.invs.keys()].map(k => M.invs.get(k)).filter(Boolean);
+    const payers = new Set(vs.map(v => v.payer).filter(Boolean));
+    const latest = vs.map(v => v.latest).filter(Boolean).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+    rows.push([monthLabel(m.m), p.name, p.mrn, p.src === 'om' ? 'Office Mate' : 'Barti', STATUS[p.status].label, p.bstat === 'none' ? '' : BSTAT_LABEL[p.bstat], latest ? `${latest.src} ${latest.date || ''}: ${latest.status}${latest.action ? ' · ' + latest.action : ''}` : '', [...payers].join('; '), [...p.invs.keys()].map(k => k.replace(/^OM:/, 'OM ')).join(' '), moneyPlain(p.charges), moneyPlain(p.disc), moneyPlain(p.adj), moneyPlain(p.charges - p.adj), moneyPlain(p.ins), p.nB ? moneyPlain(p.pt) : 'n/a', moneyPlain(p.insOwed), p.nB ? moneyPlain(p.ptOwed) : 'n/a', moneyPlain(p.bal)]);
+  }
+  download(`VEC patient detail (${basisTag()}).csv`, rows);
+};
+
+// ---------- wiring ----------
+const drop = $('drop'), fi = $('file');
+drop.onclick = () => fi.click();
+drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fi.click(); } };
+fi.onchange = () => { handleFiles([...fi.files]); fi.value = ''; };
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => handleFiles([...e.dataTransfer.files]));
+$('basis').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  S.basis = b.dataset.v; $('basis').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  S.openMonths.clear(); S.openPats.clear();
+  $('from').innerHTML = $('to').innerHTML = ''; // the month list differs per view, so show the full range
+  fillFilters(); render();
+};
+['from', 'to', 'loc', 'sort', 'status', 'bstat', 'src', 'dosFrom', 'dosTo'].forEach(id => $(id).onchange = render);
+$('dosClear').onclick = () => { $('dosFrom').value = $('dosTo').value = ''; render(); };
+let qt; $('q').oninput = () => { clearTimeout(qt); qt = setTimeout(render, 200); };
+$('expAll').onclick = () => {
+  const all = lastMonths.every(m => S.openMonths.has(m.m));
+  lastMonths.forEach(m => all ? S.openMonths.delete(m.m) : S.openMonths.add(m.m));
+  renderTable(lastMonths);
+};
+let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => lastMonths.length && renderChart(lastMonths), 150); });
+window.VEC = { handleFiles, S, get M() { return M; }, aggregate, computeInsights }; // console/debug hook
+</script>
+</body>
+</html>
