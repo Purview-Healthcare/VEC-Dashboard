@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEC Dashboard Test Report</title>
+<style>
+:root { color-scheme: light; --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f2ee; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781; --grid: #e1e0d9; --border: rgba(11,11,11,.10); --good: #006300; --bad: #b42323; --accent: #2a78d6; --hi: #fff4dc; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781; --grid: #2c2c2a; --border: rgba(255,255,255,.10); --good: #0ca30c; --bad: #e66767; --accent: #3987e5; --hi: #3a2f14; } }
+:root[data-theme="dark"] { color-scheme: dark; --page: #0d0d0d; --surface: #1a1a19; --surface-2: #242422; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781; --grid: #2c2c2a; --border: rgba(255,255,255,.10); --good: #0ca30c; --bad: #e66767; --accent: #3987e5; --hi: #3a2f14; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 19px; margin: 36px 0 10px; padding-top: 8px; border-top: 1px solid var(--grid); }
+h3 { font-size: 16px; margin: 22px 0 6px; }
+p, li { color: var(--ink-2); } p b, li b, td b { color: var(--ink); }
+.sub { color: var(--ink-2); margin: 0 0 20px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 16px 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.card .v { font-size: 22px; font-weight: 650; color: var(--ink); }
+.card .l { font-size: 13px; color: var(--ink-2); }
+.ok { color: var(--good); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; }
+.tbl { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; margin: 8px 0 4px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; color: var(--ink-2); }
+th { color: var(--ink); font-weight: 600; background: var(--surface-2); }
+td.n, th.n { text-align: right; white-space: nowrap; }
+.note { background: var(--hi); border-radius: 8px; padding: 10px 14px; margin: 12px 0; color: var(--ink); }
+.tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--ink); white-space: nowrap; }
+code { font-size: 13px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+ul { padding-left: 20px; } li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+<h1>VEC Dashboard: end-to-end test report</h1>
+<p class="sub">9 November 2026 · version live at <a href="https://purview-healthcare.github.io/VEC-Dashboard/">purview-healthcare.github.io/VEC-Dashboard</a> · tested with the 8 reports from OneDrive_2026-11-05 plus hand-built test files</p>
+
+<h2 style="border-top:0;margin-top:20px;padding-top:0">Summary</h2>
+<p>I tested the whole app and found <b>9 calculation bugs</b> plus <b>24 other problems</b> with matching, file reading and the screens. All are fixed and live at <a href="https://purview-healthcare.github.io/VEC-Dashboard/">purview-healthcare.github.io/VEC-Dashboard</a>, and every check passes now.</p>
+
+<h3>The calculation errors that affected billing (Barti, all months)</h3>
+<div class="tbl"><table>
+<tr><th></th><th class="n">Before</th><th class="n">After</th></tr>
+<tr><td>Pending with patients</td><td class="n">$290,858.37</td><td class="n"><b>$272,678.47</b> (−$18,179.90)</td></tr>
+<tr><td>Pending with insurance</td><td class="n">$182,494.67</td><td class="n"><b>$199,598.07</b> (+$17,103.40)</td></tr>
+<tr><td>Total pending</td><td class="n">$473,353.04</td><td class="n"><b>$472,276.54</b> (−$1,076.50)</td></tr>
+</table></div>
+<ul>
+  <li><b>Insurance overpaying its share was billed to the patient.</b> On 406 invoices where insurance paid more than its expected share, the extra was added to the patient's balance. For example, insurance paid $200 on a $200 bill, and the patient was still shown owing $80 and listed for statements.</li>
+  <li><b>Refunds were subtracted twice.</b> On 5 invoices the payment report had already left the refunded money out, so the patient was shown owing up to $620 extra.</li>
+</ul>
+<p>Charges, adjustments and payments were correct before and are unchanged. If patient balances were taken from this dashboard before 9 November 2026, re-check them on the current version before billing.</p>
+
+<h3>Other important fixes</h3>
+<ul>
+  <li><b>AR notes under the wrong patient.</b> 97 log entries had a fee slip number belonging to someone else. In the AR master log, some rows had the slip and MRN of the next row. These notes now attach only when the patient name matches, and the mismatches are listed under Biller insights so the logs can be corrected.</li>
+  <li><b>Wrong biller status.</b> "Claim Denied" + "Closed" showed as <i>Claim paid</i>, and COB forwards showed as <i>Patient responsibility</i>. There is now an "Underpaid" category, and each patient shows their most urgent status.</li>
+  <li><b>Lost or misplaced amounts.</b> Office Mate continuation lines were dropped. Afternoon Excel times moved to the next day. A typo year (2062) created a fake month. Accounting-format amounts like "$ (1,200.00)" read as $0.</li>
+</ul>
+
+<h3>How it was tested</h3>
+<ul>
+  <li><b>Independent recalculation:</b> a separate program written from scratch, sharing no code with the app, recalculated all 38,499 invoices, every month and patient in both views, and 50 filter combinations. There are zero differences.</li>
+  <li><b>Hand-built test files:</b> 237 checks with answers worked out by hand. They all pass; the old version failed 72 of them.</li>
+  <li><b>Click-throughs:</b> 80 checks covering every button, filter, export and upload path, including the summary at the top of the page and of every CSV export. All pass.</li>
+  <li><b>Summary on the real reports:</b> under all 50 filter combinations, the summary's numbers match the tiles, the table and the CSV exports to the cent.</li>
+  <li><b>Second review:</b> an independent reviewer read all the code and reported 30 findings. Every real issue it found is fixed.</li>
+</ul>
+
+<h3>Things to know</h3>
+<ul>
+  <li><b>Office Mate has no patient side.</b> Patient payments and balances for January 2025 – April 2026 show as n/a.</li>
+  <li><b>Barti's "Insurance Paid" column shows $14,228.48 that never arrived</b> in the payment report, across 188 invoices. Those stay pending until the adjustment is posted in Barti.</li>
+  <li><b>Match the export dates.</b> Payment reports should cover the same dates as the charge report.</li>
+</ul>
+
+<div class="cards">
+  <div class="card"><div class="v">38,499</div><div class="l">invoices recomputed independently — 0 differences</div></div>
+  <div class="card"><div class="v">65,972</div><div class="l">patient-month rows checked in both views — 0 differences</div></div>
+  <div class="card"><div class="v">50</div><div class="l">filter combinations checked — 0 differences</div></div>
+  <div class="card"><div class="v">237 / 237</div><div class="l">hand-worked checks pass (old version: 165)</div></div>
+  <div class="card"><div class="v">80 / 80</div><div class="l">click-through checks of every button, filter, export and the summary</div></div>
+</div>
+
+<h2>1. How it was tested</h2>
+<ul>
+  <li><b>Independent recalculation.</b> A separate program, written from scratch and sharing no code with the dashboard, read the raw reports and recalculated every invoice, month and patient. It was compared with the dashboard field by field: charges, adjustments, discounts, insurance paid, patient paid, pending with insurance, pending with patient, total pending, patient counts and status counts. This was done in both month views and under 25 filters each (location, system, every payment status, date-of-service ranges, month ranges, search, biller status, and combinations).</li>
+  <li><b>Hand-built test files.</b> Small Barti, Office Mate, payment and worklog files were made with one row per edge case: refunds, insurance overpaying its share, credits, a credit line posted a month later, a typo year, an old-format payment file, Office Mate continuation lines, notes with the wrong patient, multi-slip cells, and more. The expected answer for each was worked out by hand; there are 237 checks in all.</li>
+  <li><b>Click-throughs.</b> Every button, filter, chip, toggle, export and upload path was scripted, and the result checked on screen and in the exported files.</li>
+  <li><b>Independent code review.</b> A second reviewer read all of the code and reported 30 findings. Each was checked and fixed where it was real.</li>
+  <li><b>Raw-file checks.</b> The report totals were re-added outside the browser. The charge report's own arithmetic was checked on every row: Total = Subtotal − Discounts + Taxes; Balance = Total − Adjustments; Patient + Insurance Resp. = Balance; Paid − Refunds + Insurance Paid = Total Paid. Every row passes.</li>
+</ul>
+
+<h2>2. What changed in the numbers</h2>
+<p>These are the Barti totals for all months. Charges, adjustments and payments did not change; only the split of what is still owed, and the refund cases, did.</p>
+<div class="tbl"><table>
+<tr><th>Barti figure</th><th class="n">Before</th><th class="n">After</th><th class="n">Change</th><th>Why</th></tr>
+<tr><td>Charges billed</td><td class="n">$5,278,918.92</td><td class="n">$5,278,918.92</td><td class="n">—</td><td>Correct before and after</td></tr>
+<tr><td>Pending with insurance</td><td class="n">$182,494.67</td><td class="n">$199,598.07</td><td class="n">+$17,103.40</td><td>Insurer overpayments no longer net against other claims</td></tr>
+<tr><td>Pending with patients</td><td class="n">$290,858.37</td><td class="n">$272,678.47</td><td class="n">−$18,179.90</td><td>Patients were charged for insurer overpayments ($17,103.40) and double-deducted refunds ($1,076.50)</td></tr>
+<tr><td>Total pending</td><td class="n">$473,353.04</td><td class="n">$472,276.54</td><td class="n">−$1,076.50</td><td>Double-deducted refunds</td></tr>
+</table></div>
+<p>The totals for both systems together are now: charges <b>$14,603,129.07</b>, adjustments <b>$4,921,086.28</b>, insurance paid <b>$3,961,241.70</b>, patient paid <b>$2,701,300.42</b>, pending with insurance <b>$595,595.61</b>, pending with patients <b>$272,678.47</b>, and total pending <b>$868,274.08</b>.</p>
+<p>All-systems charges went down by $5,345.00 because 22 more Office Mate slips are now recognized as the same visit as a Barti invoice. Better name matching catches names with apostrophes or hyphens, and those slips are left out so the visit isn't counted twice.</p>
+
+<h2>3. Bugs found and fixed</h2>
+<h3>Calculations</h3>
+<div class="tbl"><table>
+<tr><th>Severity</th><th>What was wrong</th><th>Example</th><th>Fix</th></tr>
+<tr><td><span class="tag">High</span></td><td>When insurance paid more than its expected share, "pending with insurance" went negative and the same amount was added to what the <b>patient</b> owed.</td><td>Net $200, insurance share $120, insurance pays $200 → patient shown owing $80 and listed for statements. 406 invoices, $17,103.40.</td><td>Insurance owes nothing once its share is paid. Any extra reduces what the patient owes.</td></tr>
+<tr><td><span class="tag">High</span></td><td>Patient refunds from the charge report were subtracted even when the payment report had already left the refunded money out.</td><td>A $620 payment refunded in full and no longer in the payment report → patient shown owing an extra $620. 5 invoices, $1,076.50.</td><td>A refund is deducted only to the extent the payment report still includes it.</td></tr>
+<tr><td><span class="tag">Medium</span></td><td>Pending was spread over lines by signed amounts, so a credit line posted a month later made that month negative and inflated the first month.</td><td>A $300 charge in July and a −$50 credit in August → July shows $180 pending, August −$30.</td><td>Pending is spread over positive lines only: July $150, August $0.</td></tr>
+<tr><td><span class="tag">Medium</span></td><td>Office Mate continuation lines (amounts but no slip or date) were dropped.</td><td>A $40 refraction line under the slip above was lost.</td><td>The slip, date, patient and insurer are carried down from the line above, and the line is flagged in the data checks.</td></tr>
+<tr><td><span class="tag">Medium</span></td><td>Excel date-times after noon were rounded to the next day.</td><td>30 Jun 14:35 counted in July.</td><td>The time of day is ignored.</td></tr>
+<tr><td><span class="tag">Medium</span></td><td>A typo year (2062) created a month far in the future and made every claim look decades old.</td><td>"6/10/2062" → a "Jun 2062" month.</td><td>Dates more than a year ahead are flagged and replaced by the invoice date. Aging is never counted past today.</td></tr>
+<tr><td><span class="tag">Medium</span></td><td>"% collected" mixed Office Mate charges, which have no patient payments, with Barti payments.</td><td>March and April 2026 understated.</td><td>Uses Barti figures only.</td></tr>
+<tr><td><span class="tag">Low</span></td><td>Excel Accounting amounts and some number formats were read as $0.</td><td>"$ (1,200.00)", "5.", "1,200."</td><td>Now read correctly.</td></tr>
+<tr><td><span class="tag">Low</span></td><td>The "Barti shows insurance paid" worklist added differences of opposite sign together.</td><td>+$300 and −$250 showed as "$50".</td><td>Split into two lists, one for each direction.</td></tr>
+</table></div>
+
+<h3>AR notes and biller status</h3>
+<div class="tbl"><table>
+<tr><th>Severity</th><th>What was wrong</th><th>Fix</th></tr>
+<tr><td><span class="tag">High</span></td><td>About 100 worklog entries showed under the wrong patient. Their fee slip number belonged to someone else: a typo, or rows in the AR master log whose slip and MRN were shifted from the next row.</td><td>A note is attached only when its patient name matches the invoice's patient. The 97 mismatched entries are listed under Biller insights so the logs can be corrected.</td></tr>
+<tr><td><span class="tag">High</span></td><td>Biller status was wrong in common cases. "Claim Denied" with responsibility "Closed" showed as <i>Claim paid</i>. "Forwarded to Submission for COB" showed as <i>Patient responsibility</i>, because the pattern for "ded" matched "forwarded". "Claim underpaid" showed as <i>paid</i>.</td><td>The status text is read first, using whole words. Added an "Underpaid / not paid" category. Each log type now has a fixed meaning: denial log = denied, submission log = in process, posting log by amount.</td></tr>
+<tr><td><span class="tag">Medium</span></td><td>A patient with one paid and one denied claim showed as "Claim paid".</td><td>Patients show their most urgent status.</td></tr>
+<tr><td><span class="tag">Medium</span></td><td>Fee-slip cells created slip numbers that don't exist.</td><td>Cells like "123456.0", "123456-01" and "123456 DOS 1/2/26" are each read as one slip.</td></tr>
+<tr><td><span class="tag">Low</span></td><td>Notes on an Office Mate slip that duplicates a Barti visit disappeared.</td><td>They now move to the Barti invoice for that visit.</td></tr>
+<tr><td><span class="tag">Low</span></td><td>"-" in the MRN column was treated as an MRN.</td><td>It is now treated as blank.</td></tr>
+</table></div>
+
+<h3>Reading files, screens and exports</h3>
+<ul>
+  <li>Office Mate slips with no insurance balance showed <b>"Paid in full"</b> even though that report has no patient payments. They now show <b>"Insurance settled (Office Mate)"</b>.</li>
+  <li>Dropping the same file again after its payer types changed could <b>double count</b>. Re-dropping a file now replaces everything from it.</li>
+  <li>One blank Payer cell could make a payment file "mixed", so it <b>replaced the other payment file</b>. Blank rows now take the file's type.</li>
+  <li>Workbook sheets that weren't recognized were dropped silently. They are now reported.</li>
+  <li>Adding a newer export with more months <b>didn't widen the month range</b>. The full range now grows, and a range you narrowed is kept.</li>
+  <li>Worklists that need a payment report showed every claim as unpaid when that report was missing. They are now hidden, and the banner explains why.</li>
+  <li>New suggestion when payment reports stop before the charges do.</li>
+  <li>The takeback suggestion counted the original payment as its own repayment. Only a payment on or after the takeback counts now.</li>
+  <li>Dropping a file outside the drop area <b>opened the file and lost the page</b>. Files can now be dropped anywhere.</li>
+  <li>"Clear all" kept the old search, location and date filters. It now resets them.</li>
+  <li>A month or date range typed backwards showed nothing. It is now swapped.</li>
+  <li>A month opened by a search couldn't be collapsed.</li>
+  <li>Clicking the "Group months by" text switched the view.</li>
+  <li>Locations with doubled spaces couldn't be filtered.</li>
+  <li>CSV exports: cells starting with = + - @ are protected from running as Excel formulas, and line breaks are quoted.</li>
+  <li>Only https links from the reports become clickable.</li>
+  <li>Chart labels: $1,500 showed as "$2K".</li>
+  <li>Empty Office Mate rows (no slip and no amounts) counted as patients.</li>
+  <li>Placeholder keys for lines without an invoice number could collide across sheets.</li>
+</ul>
+
+<h2>4. Flows tested</h2>
+<div class="tbl"><table>
+<tr><th>Area</th><th>What was checked</th><th class="n">Result</th></tr>
+<tr><td>Upload</td><td>All 8 reports recognized by headings; drop area, file picker and drop anywhere; repeated heading and footer rows skipped; old-format payment headings used as control totals (✓ $600 = $600); unknown file reported while the rest stay loaded; unrecognized sheet reported</td><td class="n ok">Pass</td></tr>
+<tr><td>Replace and clear</td><td>Same files again (no change); newer file replaces older; combined payments file replaces both; month range grows; narrowed range kept; Clear all resets</td><td class="n ok">Pass</td></tr>
+<tr><td>Totals and table</td><td>Every total card and month row equals the recalculated figures, in both views and under all 50 filter runs</td><td class="n ok">Pass</td></tr>
+<tr><td>Drill-down</td><td>Month opens with the right patients; one AR-note line per patient; latest note with "earlier notes"; "No notes available"; patient opens invoice detail with refund explanation and Barti link; second click closes</td><td class="n ok">Pass</td></tr>
+<tr><td>Filters</td><td>From/To, date of service (incl. backwards, single day, open-ended, Clear), system, location, payment status, biller status, search (name, MRN, no match), sort by name and pending</td><td class="n ok">Pass</td></tr>
+<tr><td>Chips and chart</td><td>Status and biller-status chips filter the whole page; chart hover shows month figures; clicking a column opens that month; Expand / Collapse all</td><td class="n ok">Pass</td></tr>
+<tr><td>Biller insights</td><td>All 17 money-based worklists recalculated independently (count and total); note-based lists checked on test files; Show / Hide list; suggestions</td><td class="n ok">Pass</td></tr>
+<tr><td>Exports</td><td>Monthly CSV matches the table; patient CSV has one row per patient-month with AR notes; totals reconcile ($845.00 on test files); single and all-insights CSVs; Excel byte-order mark present</td><td class="n ok">Pass</td></tr>
+<tr><td>Data checks</td><td>Row arithmetic ✓; unreadable dates flagged; wrong-patient worklog entries counted; Office Mate continuation lines reported</td><td class="n ok">Pass</td></tr>
+<tr><td>Speed</td><td>All 8 reports load in about 10–30 seconds depending on the computer (mostly the 12 MB Office Mate .xls). Filters respond in under a second. "Expand all" on everything takes about 4 seconds.</td><td class="n ok">Pass</td></tr>
+</table></div>
+
+<h2>5. How each number is calculated</h2>
+<div class="tbl"><table>
+<tr><th>Figure</th><th>Rule</th></tr>
+<tr><td>Charges billed</td><td>Barti "Total" (already after discounts). Office Mate: Ins Chg + Pat Chg.</td></tr>
+<tr><td>Adjustments</td><td>Barti "Adjustments". Office Mate: the first "Ins Bal" column, which holds the insurance write-offs.</td></tr>
+<tr><td>Insurance / patient paid</td><td>Money in the Barti insurance and patient payment reports. Office Mate: Ins Pmt. Barti's own "Insurance Paid" column is only cross-checked, never counted as money received.</td></tr>
+<tr><td>Owed on an invoice</td><td>Charges − adjustments − insurance paid − (patient paid − refunds still in the payment report).</td></tr>
+<tr><td>Pending with insurance</td><td>Barti: Insurance Resp. − insurance paid, never below zero. Office Mate: its insurance balance (the second "Ins Bal").</td></tr>
+<tr><td>Pending with patient</td><td>Owed − pending with insurance. Negative means a patient credit. Not available for Office Mate (shown as n/a, never $0).</td></tr>
+<tr><td>Month</td><td>Posting view: charge date and payment date. Date-of-service view: the visit's earliest service date, for its charges and payments. Office Mate is placed by service date in both views.</td></tr>
+<tr><td>Status</td><td>Unpaid / Partially paid / Paid in full / Overpaid-credit / No charge / Payment with no charge. Office Mate slips with no insurance balance show as "Insurance settled".</td></tr>
+<tr><td>Duplicates</td><td>An Office Mate slip with the same patient and service date as a Barti invoice is left out of every total and listed under Biller insights.</td></tr>
+</table></div>
+
+<h2>6. Still worth knowing</h2>
+<ul>
+  <li><b>Office Mate has no patient side.</b> Patient payments and patient balances for January 2025 – April 2026 aren't in that report, so they show as n/a.</li>
+  <li><b>Barti's "Insurance Paid" column disagrees with the payment report on 188 invoices ($14,228.48).</b> Barti shows money that never came in, usually claims closed with an adjustment. The dashboard counts only real payments, so those invoices still show as pending until the adjustment is posted.</li>
+  <li><b>Export payments for the same dates as charges.</b> The current payment files start 31 Mar and end 30 Oct, while charges run 23 Mar – 30 Sep. The dashboard flags both gaps.</li>
+  <li><b>Fix the 97 worklog entries</b> whose slip number belongs to another patient (list under Biller insights). Until then those notes don't show under any patient.</li>
+  <li><b>Duplicate detection is by name and date.</b> A misspelled name in one system means the visit isn't recognized as a duplicate. Check the "Office Mate slips that also exist in Barti" list after each upload.</li>
+</ul>
+</main>
+</body>
+</html>
