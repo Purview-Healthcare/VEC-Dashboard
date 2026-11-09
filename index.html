@@ -142,6 +142,15 @@ details summary { cursor: pointer; font-weight: 600; }
 .hidden { display: none !important; }
 .row-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .row-between h2 { font-size: 15px; margin: 0; }
+tr.noterow > td { padding: 0 10px 10px 34px; background: transparent; white-space: normal; text-align: left; font-size: 12px; color: var(--ink-2); }
+.arnote { margin-top: 4px; padding: 6px 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; max-width: min(1100px, calc(100vw - 110px)); }
+.arnote > b { color: var(--ink); font-weight: 600; margin-right: 4px; }
+.arnote.none { background: transparent; border-style: dashed; color: var(--muted); }
+.arnote .nh { display: inline; color: var(--ink); }
+.arnote summary { cursor: pointer; }
+.arnote .more, .arnote .older > summary { color: var(--accent); }
+.arnote .older-n { border-top: 1px solid var(--grid); margin-top: 6px; padding-top: 6px; }
+.arnote .older-n .nh { display: block; }
 .checklist { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; padding-left: 20px; }
 .checklist li { margin: 3px 0; }
 @media (max-width: 640px) { .kpi .v { font-size: 18px; } th, td { padding: 6px; } }
@@ -153,6 +162,7 @@ details summary { cursor: pointer; font-weight: 600; }
   <p class="sub">Charges, adjustments, payments and pending balances by month, with patient and invoice detail and biller worklists. Drop all of the month's reports below.</p>
 
   <div class="card">
+    <div class="row-between"><h2>Upload reports</h2></div>
     <div id="drop" class="drop" tabindex="0" role="button" aria-label="Choose report files">
       <strong>Drop all the reports here, or click to choose</strong>
       <div class="hint">Any file names, Excel or CSV. The dashboard recognizes each report by its column headings: Barti charge report · Barti insurance payments · Barti patient payments · Office Mate analysis report · Denials log · Insurance posting log · COB submission log · AR worklog · AR master log. Files are read in this browser only and are not uploaded anywhere.</div>
@@ -164,6 +174,7 @@ details summary { cursor: pointer; font-weight: 600; }
 
   <div id="app" class="hidden">
     <div class="card">
+      <div class="row-between"><h2>Filters</h2></div>
       <div class="controls">
         <label>Group months by
           <span class="seg" id="basis">
@@ -193,6 +204,7 @@ details summary { cursor: pointer; font-weight: 600; }
       <p class="note" id="basisNote"></p>
     </div>
 
+    <div class="row-between"><h2>Totals</h2></div>
     <div class="kpis" id="kpis"></div>
 
     <div class="card">
@@ -207,7 +219,7 @@ details summary { cursor: pointer; font-weight: 600; }
 
     <div class="card">
       <div class="row-between">
-        <h2>Monthly report <span class="muted" style="font-weight:400;font-size:12px">Click a month for patients; click a patient for invoices.</span></h2>
+        <h2>Monthly report <span class="muted" style="font-weight:400;font-size:12px">Click a month for patients and their AR notes; click a patient for invoices.</span></h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button id="expAll">Expand all</button>
           <button id="csvMonth">Export monthly CSV</button>
@@ -878,6 +890,31 @@ function sortedPats(mo) {
   return arr;
 }
 const bpill = k => k === 'none' ? '<span class="na">—</span>' : `<span class="pill">${esc(BSTAT_LABEL[k] || k)}</span>`;
+// Every worklog note on any of the patient's invoices in this month, newest first (a note covering several slips counts once).
+function patientNotes(p) {
+  const seen = new Set(), out = [];
+  for (const k of p.invs.keys()) { const v = M.invs.get(k); if (v) for (const n of v.notes) if (!seen.has(n)) { seen.add(n); out.push(n); } }
+  return out.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+const NOTE_CUT = 300;
+function noteHtml(n) {
+  const head = [n.date || 'No date', n.src, n.biller].filter(Boolean).map(esc).join(' · ');
+  const what = [n.status, n.action].filter(Boolean).map(esc).join(' · ');
+  const c = String(n.comment || '');
+  const body = !c ? '' : c.length <= NOTE_CUT ? `<div>${esc(c)}</div>`
+    : `<details><summary>${esc(c.slice(0, NOTE_CUT))}… <span class="more">read full note</span></summary><div>${esc(c)}</div></details>`;
+  return `<div class="nh">${head}</div>${what ? `<div>${what}</div>` : ''}${body}`;
+}
+// The AR notes line shown under every patient row: the latest note inline, older ones behind a toggle.
+function noteRow(p) {
+  const notes = patientNotes(p);
+  const payers = [...new Set([...p.invs.keys()].map(k => M.invs.get(k)?.payer).filter(Boolean))].join(', ');
+  const tags = `<span class="pill">Payer: ${esc(payers || 'none on file')}</span>`;
+  const box = notes.length
+    ? `<div class="arnote"><b>AR notes</b> ${noteHtml(notes[0])}${notes.length > 1 ? `<details class="older"><summary>${notes.length - 1} earlier note${notes.length > 2 ? 's' : ''}</summary>${notes.slice(1).map(n => `<div class="older-n">${noteHtml(n)}</div>`).join('')}</details>` : ''}</div>`
+    : `<div class="arnote none"><b>AR notes</b> · No notes available</div>`;
+  return `<tr class="detail noterow"><td colspan="${COLS}">${tags}${box}</td></tr>`;
+}
 // Summary shown under an opened month: invoice counts per status (click to filter) and who owes the most.
 function monthBar(mo) {
   const stats = STATUS_ORDER.filter(k => mo.stat[k]).map(k =>
@@ -908,6 +945,7 @@ function renderTable(months) {
     for (const [pk, p] of sortedPats(mo)) {
       const id = mo.m + '|' + pk, popen = S.openPats.has(id);
       h += `<tr class="pat${popen ? ' open' : ''}" data-id="${esc(id)}"><td><span class="caret">▸</span>${esc(p.name)}<span class="mrn">${p.mrn ? 'MRN ' + esc(p.mrn) : ''}</span>${p.src === 'om' ? srcPill('om') : ''}</td><td>${p.invs.size} inv.</td>${cells(p)}<td class="st">${pill(p.status)}</td><td class="st">${bpill(p.bstat)}</td></tr>`;
+      h += noteRow(p);
       if (popen) h += `<tr class="detail"><td colspan="${COLS}">${invoiceDetail(p)}</td></tr>`;
     }
   }
@@ -1302,12 +1340,12 @@ $('csvMonth').onclick = () => {
   download(`VEC monthly summary (${basisTag()}).csv`, rows);
 };
 $('csvPat').onclick = () => {
-  const rows = [['Month', 'Patient', 'MRN', 'System', 'Status', 'Biller status', 'Latest biller note', 'Insurance billed', 'Invoices', 'Charges billed', 'Discounts', 'Adjustments', 'Net charges', 'Insurance payments', 'Patient payments', 'Pending with insurance', 'Pending with patient', 'Total pending']];
+  const rows = [['Month', 'Patient', 'MRN', 'System', 'Status', 'Biller status', 'Latest AR note', 'AR notes on file', 'Insurance billed', 'Invoices', 'Charges billed', 'Discounts', 'Adjustments', 'Net charges', 'Insurance payments', 'Patient payments', 'Pending with insurance', 'Pending with patient', 'Total pending']];
   for (const m of lastMonths) for (const [, p] of sortedPats(m)) {
     const vs = [...p.invs.keys()].map(k => M.invs.get(k)).filter(Boolean);
     const payers = new Set(vs.map(v => v.payer).filter(Boolean));
-    const latest = vs.map(v => v.latest).filter(Boolean).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
-    rows.push([monthLabel(m.m), p.name, p.mrn, p.src === 'om' ? 'Office Mate' : 'Barti', STATUS[p.status].label, p.bstat === 'none' ? '' : BSTAT_LABEL[p.bstat], latest ? `${latest.src} ${latest.date || ''}: ${latest.status}${latest.action ? ' · ' + latest.action : ''}` : '', [...payers].join('; '), [...p.invs.keys()].map(k => k.replace(/^OM:/, 'OM ')).join(' '), moneyPlain(p.charges), moneyPlain(p.disc), moneyPlain(p.adj), moneyPlain(p.charges - p.adj), moneyPlain(p.ins), p.nB ? moneyPlain(p.pt) : 'n/a', moneyPlain(p.insOwed), p.nB ? moneyPlain(p.ptOwed) : 'n/a', moneyPlain(p.bal)]);
+    const notes = patientNotes(p), latest = notes[0];
+    rows.push([monthLabel(m.m), p.name, p.mrn, p.src === 'om' ? 'Office Mate' : 'Barti', STATUS[p.status].label, p.bstat === 'none' ? '' : BSTAT_LABEL[p.bstat], latest ? `${latest.date || 'No date'} · ${latest.src}${latest.biller ? ' · ' + latest.biller : ''}: ${[latest.status, latest.action, latest.comment].filter(Boolean).join(' · ')}` : 'No notes available', notes.length, [...payers].join('; '), [...p.invs.keys()].map(k => k.replace(/^OM:/, 'OM ')).join(' '), moneyPlain(p.charges), moneyPlain(p.disc), moneyPlain(p.adj), moneyPlain(p.charges - p.adj), moneyPlain(p.ins), p.nB ? moneyPlain(p.pt) : 'n/a', moneyPlain(p.insOwed), p.nB ? moneyPlain(p.ptOwed) : 'n/a', moneyPlain(p.bal)]);
   }
   download(`VEC patient detail (${basisTag()}).csv`, rows);
 };
